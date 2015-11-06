@@ -15,6 +15,9 @@
       "height": "compact"
     }
   },
+  "app": {
+    "entry-point": "client/app_cb.js"
+  },
   "dag": {
     "inputs": {
       "emails": {
@@ -44,8 +47,7 @@
         }
       }
     ],
-    "stores": {
-    },
+    "stores": {},
     "outputs": {
       "exports": {
         "idList": {

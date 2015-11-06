@@ -1,0 +1,60 @@
+{
+  "name": "sift-pixel-tracker",
+  "display-name": "Pixel Tracker",
+  "description": "This sift detects tracking emails by detecting 1x1 hidden pixels",
+  "author": "Deepak Prabhakara",
+  "version": "1.0.0",
+  "color": "#842F59",
+  "client": {
+    "entry-point": "client/index.js",
+    "types": [
+      "summary"
+    ],
+    "minimum-size": {
+      "width": "compact",
+      "height": "compact"
+    }
+  },
+  "dag": {
+    "inputs": {
+      "emails": {
+        "trackers": {
+          "filter": {
+            "conditions": [
+              {
+                "date": "between now and 3 months before now"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "nodes": [
+      {
+        "#": "Messages mapper",
+        "implementation": {
+          "node": "server/map.js"
+        },
+        "input": {
+          "bucket": "trackers"
+        },
+        "outputs": {
+          "idList": {},
+          "tidList": {}
+        }
+      }
+    ],
+    "stores": {
+    },
+    "outputs": {
+      "exports": {
+        "idList": {
+          "import": "_id.list"
+        },
+        "tidList": {
+          "import": "_tid.list"
+        }
+      }
+    }
+  }
+}

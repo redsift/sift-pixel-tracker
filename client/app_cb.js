@@ -11,7 +11,15 @@ Redsift.App.loadThreadListView = function (listInfo, supportedTemplates) {
   console.log('sift-pixel-tracker: loadThreadListView: ', listInfo, supportedTemplates);
 
   var ret;
-  if (listInfo.tracker) {
+  if (listInfo.trackers) {
+    var tooltip = '';
+    Object.keys(listInfo.trackers).forEach(function (tracker) {
+      if(tooltip.length > 0) {
+        tooltip += ', ';
+      }
+      tooltip += tracker;
+    });
+    
     ret = {
       template: 'image[+toolip]',
       value: {

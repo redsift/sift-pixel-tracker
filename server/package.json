@@ -2,7 +2,9 @@
 	"name": "sift-pixel-tracker",
 	"display-name": "",
 	"description": "",
-	"author": "",
+	"author": "Deepak Prabhakara",
 	"version": "1.0.0",
-	"dependencies": {}
+	"dependencies": {
+    "htmlparser2": "3.8.3"
+  }
 }

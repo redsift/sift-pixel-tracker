@@ -3,6 +3,8 @@
  */
 'use strict';
 
+var htmlparser = require('htmlparser2');
+
 const trackerRegExp = /<img src="(.*) width="1"|height="1"/i;
 const urlRegExp = /:\/\/([^\/]*)/i;
 const trackersMap = {
@@ -30,21 +32,19 @@ Object.keys(trackersMap).forEach(function (key) {
 
 function checkForTracker(url) {
   var result = null;
-  trackers.forEach(function (tracker) {
-
+  trackers.some(function (tracker) {
+    //console.log('checkForTracker', tracker);
     if (url.indexOf(tracker) >= 0) {
-      if (result === null) {
-        result = {};
-      }
-      result.tracker = trackersMap[tracker];
+      //console.log('fround tracker', trackersMap[tracker]);
+      result = trackersMap[tracker];
+      return true;
     }
   });
   if (result === null) {
     var newTracker = urlRegExp.exec(url);
     if (newTracker && newTracker.length > 1) {
-      console.log('newTracker=', newTracker.length, newTracker[1]);
-      result = {};
-      result.tracker = newTracker;
+      //console.log('newTracker=', newTracker.length, newTracker[1]);
+      return newTracker[1];
     }
   }
   return result;
@@ -52,6 +52,7 @@ function checkForTracker(url) {
 
 // Entry point for DAG node
 module.exports = function (got) {
+  console.log('MAP: mapping... got', got);
   const inData = got['in'];
   const withData = got['with'];
 
@@ -66,26 +67,86 @@ module.exports = function (got) {
         var msg = JSON.parse(d.value);
         console.log('MAP: msg.ID: ', msg.id, msg.threadId);
 
-        if (msg.htmlBody && msg.htmlBody.length > 0) {
-          var url = trackerRegExp.exec(msg.htmlBody);
-          if (url && url.length > 1) {
-            //console.log('found url = ', url.length, url[1]);
-            var result = checkForTracker(url[1]);
-            console.log('result=', result);
-            if (result !== null) {
-              ret.push({
-                name: 'idList',
-                key: msg.id,
-                value: { list: result }
-              });
-              
-              ret.push({
-                name: 'tidList',
-                key: msg.threadId,
-                value: { list: result }
-              });
-            }
-          }
+        if (msg.htmlBody && msg.htmlBody.length > 0 /*&& msg.htmlBody.indexOf('adsafeprotected.com') > 0*/) {
+
+          var promise = new Promise(function (resolve, reject) {
+
+            var list = {
+              trackers: {}
+            };
+
+            var parser = new htmlparser.Parser({
+              onopentag: function (tagname, attribs) {
+                //console.log('opentag=', tagname);
+                if (tagname === 'img') {
+                  if (attribs.src && attribs.width === '1' && attribs.height === '1' || attribs.width === '0' && attribs.height === '0') {
+                    console.log('name, attribs=', tagname, attribs.width, attribs.height, attribs.src);
+                    var tracker = checkForTracker(attribs.src);
+
+                    console.log('tracker=', tracker);
+                    if (tracker !== null) {
+
+                      var count = list.trackers[tracker];
+                      console.log('count=', count, typeof count);
+                      if (count === null || typeof count !== 'number') {
+                        count = 0;
+                      }
+                      count += 1;
+                      list.trackers[tracker] = count;
+                      /*lateRet.name = 'tidList';
+                      lateRet.key = msg.threadId;
+                      lateRet.value = { list: result };*/
+                    }
+                  }
+                }
+              },
+              onend: function () {
+                console.log('ending parsing!', arguments);
+                var lateRet = [];
+                console.log('Thats it?!');
+                console.log('resolving', list);
+                if (Object.keys(list.trackers).length > 0) {
+                  lateRet.push({
+                    name: 'idList',
+                    key: msg.id,
+                    value: { list: list }
+                  });
+                  lateRet.push({
+                    name: 'tidList',
+                    key: msg.threadId,
+                    value: { list: list }
+                  });
+                }
+                resolve(lateRet);
+              }
+            }, { decodeEntities: false });
+            parser.write(msg.htmlBody);
+            parser.end();
+
+            /*var url = trackerRegExp.exec(msg.htmlBody);
+            if (url && url.length > 1) {
+              //console.log('found url = ', url.length, url[1]);
+              var result = checkForTracker(url[1]);
+              console.log('result=', result);
+              if (result !== null) {
+                ret.push({
+                  name: 'idList',
+                  key: msg.id,
+                  value: { list: result }
+                });
+
+                ret.push({
+                  name: 'tidList',
+                  key: msg.threadId,
+                  value: { list: result }
+                });
+              }
+            }*/
+
+          });
+
+          console.log('pushing promise', promise);
+          ret.push(promise);
         }
       }
       catch (ex) {
@@ -99,5 +160,11 @@ module.exports = function (got) {
     }
   }
   console.log('MAP: mapped: ', ret);
-  return ret;
+  console.log('MAP: mapped length: ', ret.length);
+  if (ret.length === 0) {
+    return ret;
+  } else if (ret.length === 1) {
+    return ret[0];
+  }
+  return Promise.all(ret);
 };

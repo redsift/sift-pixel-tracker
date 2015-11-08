@@ -43,11 +43,28 @@
         },
         "outputs": {
           "idList": {},
+          "threads": {}
+        }
+      },
+      {
+        "#": "Threads aggregator",
+        "implementation": {
+          "node": "server/threads.js"
+        },
+        "input": {
+          "bucket": "threads",
+          "select": "/*"
+        },
+        "outputs": {
           "tidList": {}
         }
       }
     ],
-    "stores": {},
+    "stores": {
+      "threads": {
+        "key$schema": "string/string"
+      }
+    },
     "outputs": {
       "exports": {
         "idList": {

@@ -1,5 +1,5 @@
 /** 
- * 
+ * Mapper for finding trackers within emails.
  */
 'use strict';
 
@@ -94,9 +94,9 @@ function getPromise(msg) {
             value: { list: list }
           });
           lateRet.push({
-            name: 'tidList',
-            key: msg.threadId,
-            value: { list: list }
+            name: 'threads',
+            key: msg.threadId + '/' + msg.id,
+            value: list.trackers
           });
         }
         resolve(lateRet);

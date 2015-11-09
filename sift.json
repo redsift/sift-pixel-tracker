@@ -8,7 +8,8 @@
   "client": {
     "entry-point": "client/index.js",
     "types": [
-      "summary"
+      "summary",
+      "email-detail"
     ],
     "minimum-size": {
       "width": "compact",

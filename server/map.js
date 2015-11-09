@@ -129,7 +129,7 @@ module.exports = function (got) {
       console.log('MAP: got a deletion: ', d.key);
     }
   }
-  console.log('MAP: mapped: ', ret);
+  //console.log('MAP: mapped: ', ret);
   //console.log('MAP: mapped length: ', ret.length);
   return Promise.all(ret);
 };

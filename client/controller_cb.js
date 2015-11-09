@@ -13,7 +13,7 @@
  */
 Sift.View.customFont = function (value) {
   // Remove if you want to control the fonts you use
-  document.body.style.fontFamily = value.fontFamily;
+  //document.body.style.fontFamily = value.fontFamily;
 };
 
 /**
@@ -24,7 +24,8 @@ Sift.View.customFont = function (value) {
  */
 Sift.View.presentView = function (value) {
   console.log('sift-pixel-tracker: presentView: ', value);
-  if (value.sizeClass) {
+  updateGraph(value.graph);
+  /*if (value.sizeClass) {
     var w = document.getElementById('width');
     w.textContent = value.sizeClass.width;
     w.style.color = '#231F20';
@@ -42,7 +43,7 @@ Sift.View.presentView = function (value) {
     var t = document.getElementById('type');
     t.textContent = value.type;
     t.style.color = '#231F20';
-  }
+  }*/
 };
 
 /**
@@ -61,7 +62,7 @@ Sift.View.presentView = function (value) {
  */
 Sift.View.willPresentView = function (value) {
   console.log('sift-pixel-tracker: willPresentView: ', value);
-  var currWidth  = value.sizeClass.current.width;
+  /*var currWidth  = value.sizeClass.current.width;
   var prevWidth  = value.sizeClass.previous.width;
   var currHeigth = value.sizeClass.current.height;
   var prevHeight = value.sizeClass.previous.height;
@@ -77,5 +78,5 @@ Sift.View.willPresentView = function (value) {
   }
   var m = document.getElementById('message');
   m.textContent = 'will present view';
-  m.style.color = '#ED1651';
+  m.style.color = '#ED1651';*/
 };

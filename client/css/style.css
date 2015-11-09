@@ -10,13 +10,16 @@
 }
 /* Body style */
 body {
-	font: 10px Trebuchet MS, Lucida Grande, Lucida Sans Unicode, Lucida Sans, Tahoma, sans-serif;
+	font-family: 'Trebuchet MS', 'Lucida Grande', 'Lucida Sans Unicode', 'Lucida Sans', Tahoma, sans-serif;
 	margin: 0 auto;
-	position: relative;
 }
-/* Label styles */
-.example-label {
-	font: 16px 'Electrolize', sans-serif;
-  text-align: center;
-  width: 100%;
+
+.treemap .node {
+  font-size: 100%;
+  line-height: 150%;
+  overflow: hidden;
+  position: absolute;
+  text-indent: 1%;
+  transition: background 1s;
+  transition: color 0.5s;
 }

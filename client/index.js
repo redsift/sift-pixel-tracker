@@ -21,47 +21,34 @@ include('redsift.js');
 // @resolve: function ({html:'<string>', data: {<object>}, label:'string'})
 // @reject: function (error)
 Sift.Controller.loadView = function (value, resolve, reject) {
-  console.log('sift-pixel-tracker: load', value);
-  var html;
-  var data;
-  if(value.sizeClass.current.height === 'list') {
-    // TODO: explain that this has to be synchronous for now as all the required info should be available in 'value'
-    // TODO: explain all possible templates
-    html = null;
-    data = {
-      title: 'Example Title',
-      subtitle: 'Example subtitle',
-      image: {
-        url: 'assets/redsift-logo.png',
-        size: 'large'
-      }
+  console.log('sift-pixel-tracker: loadView', value);
+  var html = 'client/summary.html';
+
+  if (!value.params || Object.keys(value.params).length === 0) {
+    value.params = {
+      'name': 'No Trackers found!',
+      'children': [
+      ]
     };
+  } else {
+    var graph = {};
+    graph.name = 'Trackers';
+    graph.children = [];
+    var trackers = value.params.trackers;
+
+    Object.keys(trackers).forEach(function (tracker) {
+      graph.children.push({ name: tracker, count: trackers[tracker] });
+    });
+
+    value.params = graph;
   }
-  else {
-    var msg = 'returned synchronously';
-    if(value.sizeClass.current.height === 'full') {
-      msg = 'waiting for async response...';
-      setTimeout(function () {
-        // Asynchronous resolve
-        resolve ({
-          data: {message: 'resolved asynchronously'},
-          label: 'example-sift'
-        });
-      }, 1500);
-    }
-    // TODO: return something asynchronously here
-    html = 'client/index.html';
-    data = {
-        sizeClass: value.sizeClass.current,
-        type: value.type,
-        message: msg
-    };
-  }
+  var data = { graph: value.params };
+
   // Synchronous return
   return {
     data: data,
     html: html,
-    label: 'example-sift'
+    label: 'Trackers'
   };
 };
 

@@ -7,7 +7,7 @@
 module.exports = function (got) {
   //console.log('MAP: mapping... got', got);
   const inData = got['in'];
-  const query = got['query'];
+  const query = got.query;
 
   //console.log('THREADS: ...', inData, query);
   
@@ -32,5 +32,5 @@ module.exports = function (got) {
   }
   console.log('THREADS: done: ', trackers);
   //console.log('MAP: mapped length: ', ret.length);
-  return { name: 'tidList', key: query[0], value: { list: { trackers: trackers } } };
+  return { name: 'tidList', key: query[0], value: { list: { trackers: trackers }, detail: { trackers: trackers } } };
 };

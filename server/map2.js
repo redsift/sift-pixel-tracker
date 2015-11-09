@@ -10,7 +10,7 @@ module.exports = function (got) {
   //const withData = got['with'];
 
   console.log('MAP2: mapping...');
-  console.log('MAP2: inData...', inData);
+  //console.log('MAP2: inData...', inData);
   //console.log('MAP: withData...', withData);
   var ret = [];
   for (var d of inData.data) {
@@ -24,7 +24,8 @@ module.exports = function (got) {
           name: 'idList',
           key: d.key,
           value: {
-            list: value
+            list: value,
+            detail: value
           }
         });
 
@@ -46,6 +47,6 @@ module.exports = function (got) {
       console.log('MAP2: got a deletion: ', d.key);
     }
   }
-  console.log('MAP2: mapped: ', ret);
+  //console.log('MAP2: mapped: ', ret);
   return ret;
 };

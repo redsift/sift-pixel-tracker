@@ -34,7 +34,7 @@ Sift.Controller.loadView = function (value, resolve, reject) {
     var graph = {};
     graph.name = 'Trackers';
     graph.children = [];
-    var trackers = value.params.trackers;
+    var trackers = value.params.detail.trackers;
 
     Object.keys(trackers).forEach(function (tracker) {
       graph.children.push({ name: tracker, count: trackers[tracker] });

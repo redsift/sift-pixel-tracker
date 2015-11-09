@@ -6,7 +6,7 @@
   "version": "1.0.0",
   "color": "#842F59",
   "client": {
-    "entry-point": "client/index.js",
+    "entry-point": "client/controller_cb.js",
     "types": [
       "summary",
       "email-detail"

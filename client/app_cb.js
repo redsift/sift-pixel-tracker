@@ -24,7 +24,7 @@ Redsift.App.loadThreadListView = function (listInfo, supportedTemplates) {
       template: 'image[+toolip]',
       value: {
         imageUrl: 'https://dl.dropboxusercontent.com/u/10795357/fa-eye.png',
-        tooltip: listInfo.tracker
+        tooltip: tooltip
       }
     };
   }

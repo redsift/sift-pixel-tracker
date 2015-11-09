@@ -5,7 +5,6 @@
 
 var htmlparser = require('htmlparser2');
 
-const trackerRegExp = /<img src="(.*) width="1"|height="1"/i;
 const urlRegExp = /:\/\/([^\/]*)/i;
 const trackersMap = {
   'mailfoogae.appspot.com': 'Streak',
@@ -53,7 +52,8 @@ function checkForTracker(url) {
 function getPromise(msg) {
   var promise = new Promise(function (resolve, reject) {
 
-    var list = {
+    var result = {
+      threadId: msg.threadId,
       trackers: {}
     };
 
@@ -68,38 +68,24 @@ function getPromise(msg) {
             //console.log('tracker=', tracker);
             if (tracker !== null) {
 
-              var count = list.trackers[tracker];
+              var count = result.trackers[tracker];
               //console.log('count=', count, typeof count);
               if (count === null || typeof count !== 'number') {
                 count = 0;
               }
               count += 1;
-              list.trackers[tracker] = count;
-              /*lateRet.name = 'tidList';
-              lateRet.key = msg.threadId;
-              lateRet.value = { list: result };*/
+              result.trackers[tracker] = count;
             }
           }
         }
       },
       onend: function () {
         //console.log('ending parsing!', arguments);
-        var lateRet = [];
-        //console.log('Thats it?!');
-        console.log('Found trackers', list);
-        if (Object.keys(list.trackers).length > 0) {
-          lateRet.push({
-            name: 'idList',
+        resolve({
+            name: 'messages',
             key: msg.id,
-            value: { list: list }
+            value: result
           });
-          lateRet.push({
-            name: 'threads',
-            key: msg.threadId + '/' + msg.id,
-            value: list.trackers
-          });
-        }
-        resolve(lateRet);
       }
     }, { decodeEntities: false });
     parser.write(msg.htmlBody);
@@ -145,10 +131,5 @@ module.exports = function (got) {
   }
   console.log('MAP: mapped: ', ret);
   //console.log('MAP: mapped length: ', ret.length);
-  if (ret.length === 0) {
-    return ret;
-  } else if (ret.length === 1) {
-    return ret[0];
-  }
   return Promise.all(ret);
 };

@@ -23,7 +23,7 @@ include('redsift.js');
 Sift.Controller.loadView = function (value, resolve, reject) {
   console.log('sift-pixel-tracker: loadView', value);
   var result = {
-    html: 'client/summary.html',
+    //html: 'client/summary.html',
     label: 'Trackers'
   };
 

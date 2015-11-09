@@ -32,5 +32,5 @@ module.exports = function (got) {
   }
   console.log('THREADS: done: ', trackers);
   //console.log('MAP: mapped length: ', ret.length);
-  return { name: 'tidList', key: query[0], value: { list: trackers } };
+  return { name: 'tidList', key: query[0], value: { list: { trackers: trackers } } };
 };

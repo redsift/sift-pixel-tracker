@@ -14,12 +14,12 @@ Redsift.App.loadThreadListView = function (listInfo, supportedTemplates) {
   if (listInfo.trackers) {
     var tooltip = '';
     Object.keys(listInfo.trackers).forEach(function (tracker) {
-      if(tooltip.length > 0) {
+      if (tooltip.length > 0) {
         tooltip += ', ';
       }
       tooltip += tracker;
     });
-    
+
     ret = {
       template: 'image[+toolip]',
       value: {

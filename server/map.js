@@ -82,10 +82,10 @@ function getPromise(msg) {
       onend: function () {
         //console.log('ending parsing!', arguments);
         resolve({
-            name: 'messages',
-            key: msg.id,
-            value: result
-          });
+          name: 'messages',
+          key: msg.id,
+          value: result
+        });
       }
     }, { decodeEntities: false });
     parser.write(msg.htmlBody);

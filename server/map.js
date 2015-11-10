@@ -53,6 +53,7 @@ function getPromise(msg) {
   var promise = new Promise(function (resolve, reject) {
 
     var result = {
+      id: msg.id,
       threadId: msg.threadId,
       trackers: {}
     };
@@ -81,18 +82,43 @@ function getPromise(msg) {
       },
       onend: function () {
         //console.log('ending parsing!', arguments);
-        resolve({
-          name: 'messages',
-          key: msg.id,
-          value: result
-        });
+        resolve(result);
       }
     }, { decodeEntities: false });
     parser.write(msg.htmlBody);
     parser.end();
 
   });
-  return promise;
+
+  var promise1 = promise.then(function (result) {
+    if (result.trackers && Object.keys(result.trackers).length > 0) {
+      return {
+        name: 'idList',
+        key: result.id,
+        value: {
+          list: { trackers: result.trackers },
+          detail: { trackers: result.trackers }
+        }
+      };
+    } else {
+      return null;
+    }
+  });
+  var promise2 = promise.then(function (result) {
+
+    if (result.trackers && Object.keys(result.trackers).length > 0) {
+      return {
+        name: 'threads',
+        key: result.threadId + '/' + result.id,
+        value: result.trackers
+      };
+    } else {
+      return null;
+    }
+
+  });
+
+  return [promise1, promise2];
 }
 
 // Entry point for DAG node
@@ -113,10 +139,10 @@ module.exports = function (got) {
         //console.log('MAP: msg.ID: ', msg.id, msg.threadId);
 
         if (msg.htmlBody && msg.htmlBody.length > 0 /*&& msg.htmlBody.indexOf('adsafeprotected.com') > 0*/) {
-          var promise = getPromise(msg);
-
+          var promises = getPromise(msg);
           //console.log('pushing promise', promise);
-          ret.push(promise);
+          ret.push(promises[0]);
+          ret.push(promises[1]);
         }
       }
       catch (ex) {
@@ -130,6 +156,6 @@ module.exports = function (got) {
     }
   }
   //console.log('MAP: mapped: ', ret);
-  //console.log('MAP: mapped length: ', ret.length);
+  //console.log('MAP: mapped length: ', ret, ret.length);
   return Promise.all(ret);
 };

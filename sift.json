@@ -43,18 +43,6 @@
           "bucket": "trackers"
         },
         "outputs": {
-          "messages": {}
-        }
-      },
-      {
-        "#": "Messages mapper 2",
-        "implementation": {
-          "node": "server/map2.js"
-        },
-        "input": {
-          "bucket": "messages"
-        },
-        "outputs": {
           "idList": {},
           "threads": {}
         }
@@ -74,9 +62,6 @@
       }
     ],
     "stores": {
-      "messages": {
-        "key$schema": "string"
-      },
       "threads": {
         "key$schema": "string/string"
       }

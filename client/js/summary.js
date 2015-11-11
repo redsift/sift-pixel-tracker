@@ -30,6 +30,8 @@ function attributes() {
     .style('top', function (d) { return d.y + '%'; })
     .style('width', function (d) { return d.dx + '%'; })
     .style('height', function (d) { return d.dy + '%'; })
+    .style('font-size', function (d) { return d.dx + '%'; })
+    .style('text-anchor', 'middle')
     .style('background', function (d) {
       return color(getLabel(d));
     })
@@ -44,5 +46,5 @@ function updateGraph(data) {
   node.enter().append('div')
     .attr('class', 'node');
 
-  node.transition().duration(500).call(attributes);
+  node.transition().duration(200).call(attributes);
 }

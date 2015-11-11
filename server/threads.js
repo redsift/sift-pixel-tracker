@@ -5,7 +5,7 @@
 
 // Entry point for DAG node
 module.exports = function (got) {
-  //console.log('MAP: mapping... got', got);
+  console.log('THREADS: aggregating...');
   const inData = got['in'];
   const query = got.query;
 
@@ -13,8 +13,8 @@ module.exports = function (got) {
   
   var trackers = {};
   for (var d of inData.data) {
-    console.log('THREADS: key: ', d.key);
-    console.log('THREADS: value: ', d.value);
+    //console.log('THREADS: key: ', d.key);
+    //console.log('THREADS: value: ', d.value);
     var value = {};
     try {
       value = JSON.parse(d.value);
@@ -30,7 +30,7 @@ module.exports = function (got) {
       trackers[tracker] = count;
     });
   }
-  console.log('THREADS: done: ', trackers);
+  //console.log('THREADS: done: ', trackers);
   //console.log('MAP: mapped length: ', ret.length);
   return { name: 'tidList', key: query[0], value: { list: { trackers: trackers }, detail: { trackers: trackers } } };
 };

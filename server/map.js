@@ -5,6 +5,9 @@
 
 var htmlparser = require('htmlparser2');
 
+const styleHeightRegExp = /(?:max-|)height\s*:\s*([01]\s*px)/i;
+const styleWidthRegExp = /(?:max-|)width\s*:\s*([01]\s*px)/i;
+
 const urlRegExp = /:\/\/([^\/]*)/i;
 const trackersMap = {
   'mailfoogae.appspot.com': 'Streak',
@@ -49,7 +52,7 @@ function checkForTracker(url) {
   return result;
 }
 
-function getPromise(msg) {
+function getPromises(msg) {
   var promise = new Promise(function (resolve, reject) {
 
     var result = {
@@ -61,8 +64,24 @@ function getPromise(msg) {
     var parser = new htmlparser.Parser({
       onopentag: function (tagname, attribs) {
         //console.log('opentag=', tagname);
-        if (tagname === 'img') {
-          if (attribs.src && attribs.width === '1' && attribs.height === '1' || attribs.width === '0' && attribs.height === '0') {
+        if (tagname === 'img' && attribs.src) {
+          var foundTracker = attribs.width === '1' && attribs.height === '1' ||
+            attribs.width === '0' && attribs.height === '0';
+
+          if (!foundTracker) {
+            if (attribs.style) {
+              var heightVal = styleHeightRegExp.exec(attribs.style);
+              var widthVal = styleWidthRegExp.exec(attribs.style);
+              //console.log('heightVal,widthVal', heightVal, widthVal);
+              if (heightVal && widthVal && heightVal.length > 1 && widthVal.length > 1) {
+                if ((heightVal[1] === '0px' || heightVal[1] === '1px') && (widthVal[1] === '0px' || widthVal[1] === '1px')) {
+                  foundTracker = true;
+                }
+              }
+            }
+          }
+          //console.log('attribs=', attribs);
+          if (foundTracker) {
             //console.log('name, attribs=', tagname, attribs.width, attribs.height, attribs.src);
             var tracker = checkForTracker(attribs.src);
 
@@ -139,7 +158,7 @@ module.exports = function (got) {
         //console.log('MAP: msg.ID: ', msg.id, msg.threadId);
 
         if (msg.htmlBody && msg.htmlBody.length > 0 /*&& msg.htmlBody.indexOf('adsafeprotected.com') > 0*/) {
-          var promises = getPromise(msg);
+          var promises = getPromises(msg);
           //console.log('pushing promise', promise);
           ret.push(promises[0]);
           ret.push(promises[1]);

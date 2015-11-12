@@ -46,5 +46,5 @@ function updateGraph(data) {
   node.enter().append('div')
     .attr('class', 'node');
 
-  node.transition().duration(200).call(attributes);
+  node.call(attributes);
 }

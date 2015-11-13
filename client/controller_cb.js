@@ -90,21 +90,25 @@ function loadSummaryView(value, resolve, reject) {
     graph.children = [];
     var trackers = {};
     results.forEach(function (result) {
-      var obj = JSON.parse(result.value);
-      Object.keys(obj.detail.trackers).forEach(function (tracker) {
-        var count = trackers[tracker];
-        if (count === null || typeof count !== 'number') {
-          count = 0;
-        }
-        count += obj.detail.trackers[tracker];
-        trackers[tracker] = count;
-      });
+      try {
+        var obj = JSON.parse(result.value);
+        Object.keys(obj.detail.trackers).forEach(function (tracker) {
+          var count = trackers[tracker];
+          if (count === null || typeof count !== 'number') {
+            count = 0;
+          }
+          count += obj.detail.trackers[tracker];
+          trackers[tracker] = count;
+        });
+      } catch (err) {
+
+      }
     });
 
     Object.keys(trackers).forEach(function (tracker) {
       graph.children.push({ name: tracker, count: trackers[tracker] });
     });
-    
+
     result.data = { graph: graph };
     console.log('result async=', result, resolve, reject);
     resolve(result);

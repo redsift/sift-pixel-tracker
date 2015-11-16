@@ -6,7 +6,7 @@
   "version": "1.0.0",
   "color": "#842F59",
   "client": {
-    "entry-point": "client/controller_cb.js",
+    "entry-point": "client/controller.js",
     "types": [
       "summary",
       "email-detail"
@@ -17,7 +17,7 @@
     }
   },
   "app": {
-    "entry-point": "client/app_cb.js"
+    "entry-point": "client/client.js"
   },
   "dag": {
     "inputs": {

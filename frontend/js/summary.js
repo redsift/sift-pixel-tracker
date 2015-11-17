@@ -1,4 +1,5 @@
 'use strict';
+/* globals d3 */
 
 /*var data = {
   "name": "cluster",
@@ -24,7 +25,7 @@ function getLabel(d) {
   return d.name + (d.count ? ' (' + d.count + ')' : '');
 }
 
-function attributes() {
+var attributes = function () {
   this
     .style('left', function (d) { return d.x + '%'; })
     .style('top', function (d) { return d.y + '%'; })
@@ -36,7 +37,7 @@ function attributes() {
       return color(getLabel(d));
     })
     .text(getLabel);
-}
+};
 
 function updateGraph(data) {
   var node =

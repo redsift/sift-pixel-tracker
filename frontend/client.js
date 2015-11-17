@@ -1,3 +1,6 @@
+'use strict';
+/* globals Redsift */
+
 /**
  * Application event handlers
  */

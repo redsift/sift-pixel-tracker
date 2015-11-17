@@ -5,8 +5,8 @@
   "author": "Deepak Prabhakara",
   "version": "1.0.0",
   "color": "#842F59",
-  "client": {
-    "entry-point": "client/controller.js",
+  "controller": {
+    "entry-point": "frontend/controller.js",
     "types": [
       "summary",
       "email-detail"
@@ -16,8 +16,8 @@
       "height": "compact"
     }
   },
-  "app": {
-    "entry-point": "client/client.js"
+  "client": {
+    "entry-point": "frontend/client.js"
   },
   "dag": {
     "inputs": {

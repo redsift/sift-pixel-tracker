@@ -5,18 +5,6 @@
  */
 
 /**
- * Sets the custom font to match the application.
- *
- * Parameters:
- * value.fontFamily: contains the string for the CSS font-family.
- * i.e: Trebuchet MS,Lucida Grande,Lucida Sans Unicode,Lucida Sans,Tahoma,sans-serif;
- */
-Sift.View.customFont = function (value) {
-  // Remove if you want to control the fonts you use
-  //document.body.style.fontFamily = value.fontFamily;
-};
-
-/**
  * Called by the framework when fe/index.js calls the resolve function
  *
  * Parameters:

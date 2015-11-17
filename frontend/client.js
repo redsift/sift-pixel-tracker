@@ -3,11 +3,11 @@
  */
 
 // TODO: supportedTemplates
-Redsift.App.loadMessageListView = function (listInfo, supportedTemplates) {
+Redsift.Client.loadMessageListView = function (listInfo, supportedTemplates) {
   console.log('sift-pixel-tracker: loadMessageListView: ', listInfo, supportedTemplates);
 };
 
-Redsift.App.loadThreadListView = function (listInfo, supportedTemplates) {
+Redsift.Client.loadThreadListView = function (listInfo, supportedTemplates) {
   console.log('sift-pixel-tracker: loadThreadListView: ', listInfo, supportedTemplates);
 
   var ret;

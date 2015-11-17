@@ -23,7 +23,7 @@ include('redsift.js');
 Sift.Controller.loadView = function (value, resolve, reject) {
   console.log('sift-pixel-tracker: loadView', value);
   var result = {
-    html: 'client/view.html',
+    html: 'frontend/view.html',
     label: 'Trackers'
   };
 
@@ -58,26 +58,9 @@ Sift.Controller.loadView = function (value, resolve, reject) {
   return result;
 };
 
-// Function: onstorageupdate
-// Description: Invoked when a Sift storage data has changed
-// Parameters:
-// @value: { 
-//          sizeClass: { 
-//            current:  {width: 'none'|'compact'|'full', height: 'none'|'list'|'compact'|'full'}
-//          },
-//          type: 'compose'|'email-detail'|'summary',
-//          params: {<object>}
-//        }
-// return: null or {html:'<string>', data: {<object>}, label:'string'}
-// @resolve: function ({html:'<string>', data: {<object>}, label:'string'})
-// @reject: function (error)
-Sift.Controller.onstorageupdate = function (value, resolve, reject) {
-  return Sift.Controller.loadView(value, resolve, reject);
-};
-
 function loadSummaryView(value, resolve, reject) {
   var result = {
-    html: 'client/view.html',
+    html: 'frontend/view.html',
     label: 'Trackers'
   };
   

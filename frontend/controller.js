@@ -13,7 +13,7 @@ var summaryView = false;
 
 function getAllValues() {
   return new Promise(function (resolve, reject) {
-    Sift.Storage.getAllValues('_tid.list').then(function (results) {
+    Sift.Storage.getAll({ bucket: '_tid.list' }).then(function (results) {
       //console.log('allValues=', results);
       var graph = {};
       graph.name = 'Trackers';
@@ -31,7 +31,7 @@ function getAllValues() {
             trackers[tracker] = count;
           });
         } catch (err) {
-
+          console.error('getAllValues err', err);
         }
       });
 

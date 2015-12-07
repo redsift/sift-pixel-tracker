@@ -6,8 +6,6 @@
  *
  * Copyright (c) 2015 Redsift Limited. All rights reserved.
  */
-include('redsift.js');
-//include('moment.js'); // Uncomment if you'd like moment.js for date utils.
 
 var summaryView = false;
 

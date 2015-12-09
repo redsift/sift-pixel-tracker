@@ -49,8 +49,7 @@ function getAllValues() {
 function loadSummaryView(value, resolve, reject) {
   summaryView = true;
   var result = {
-    html: 'frontend/view.html',
-    label: 'Trackers'
+    html: 'frontend/view.html'
   };
 
   getAllValues().then(function (graph) {
@@ -64,20 +63,19 @@ function loadSummaryView(value, resolve, reject) {
 // Parameters:
 // @value: { 
 //          sizeClass: {
-//            previous: {width: 'none'|'compact'|'full', height: 'none'|'list'|'compact'|'full'}, 
-//            current:  {width: 'none'|'compact'|'full', height: 'none'|'list'|'compact'|'full'}
+//            previous: {width: 'compact'|'full', height: 'compact'|'full'}, 
+//            current:  {width: 'compact'|'full', height: 'compact'|'full'}
 //          },
 //          type: 'compose'|'email-detail'|'summary',
 //          params: {<object>}
 //        }
-// return: null or {html:'<string>', data: {<object>}, label:'string'}
-// @resolve: function ({html:'<string>', data: {<object>}, label:'string'})
+// return: null or {html:'<string>', data: {<object>}}
+// @resolve: function ({html:'<string>', data: {<object>}})
 // @reject: function (error)
 Sift.Controller.loadView = function (value, resolve, reject) {
   console.log('sift-pixel-tracker: loadView', value);
   var result = {
-    html: 'frontend/view.html',
-    label: 'Trackers'
+    html: 'frontend/view.html'
   };
 
   if (!value.params || Object.keys(value.params).length === 0) {

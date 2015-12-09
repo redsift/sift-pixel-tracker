@@ -24,13 +24,13 @@ Sift.View.presentView = function (value) {
  * Parameters:
  * @value: {
  *  sizeClass: {
- *    previous: {width: 'none'|'compact'|'full', height: 'none'|'list'|'compact'|'full'}, 
- *    current: {width: 'none'|'compact'|'full', height: 'none'|'list'|'compact'|'full'}
+ *    previous: {width: 'compact'|'full', height: 'compact'|'full'},
+ *    current: {width: 'compact'|'full', height: 'compact'|'full'}
  *  },
- *  type: 'compose'|'email-detail'|'summary'
+ *  type: 'email-detail'|'summary'
  * }
- * value.size: contains the new height and width of the view (height: text|compact|full, width: compact|full)
- * value.previous: contains the previous height and width of the view (height: text|compact|full, width: compact|full)
+ * value.sizeClass.current: contains the new height and width of the view (height: compact|full, width: compact|full)
+ * value.sizeClass.previous: contains the previous height and width of the view (height: compact|full, width: compact|full)
  */
 Sift.View.willPresentView = function (value) {
   console.log('sift-pixel-tracker: willPresentView: ', value);

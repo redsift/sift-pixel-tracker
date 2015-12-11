@@ -8,14 +8,21 @@
  */
 
 /**
- * Called by the framework when fe/index.js calls the resolve function
+ * Called by the framework when the loadView callback in frontend/controller.js calls the resolve function or returns a value
  *
  * Parameters:
- * value: {object} (data object returned by the load or resolve methods in the controller)
+ * @value: {
+ *  sizeClass: {
+ *      previous: {width: 'compact'|'full', height: 'compact'|'full'},
+ *      current: {width: 'compact'|'full', height: 'compact'|'full'}
+ *    },
+ *    type: 'email-detail'|'summary',
+ *    data: {object} (data object returned by the load or resolve methods in the controller)
+ *  }
  */
 Sift.View.presentView = function (value) {
   console.log('sift-pixel-tracker: presentView: ', value);
-  updateGraph(value.graph);
+  updateGraph(value.data.graph);
 };
 
 /**

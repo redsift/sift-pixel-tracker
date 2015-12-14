@@ -14,22 +14,23 @@ Redsift.Client.loadMessageListView = function (listInfo, supportedTemplates) {
 Redsift.Client.loadThreadListView = function (listInfo, supportedTemplates) {
   console.log('sift-pixel-tracker: loadThreadListView: ', listInfo, supportedTemplates);
 
-  var ret;
+  var ret = {
+    template: '003_list_common_img'
+  };
   if (listInfo && listInfo.trackers) {
-    var tooltip = '';
+    var subtitle = '';
     Object.keys(listInfo.trackers).forEach(function (tracker) {
-      if (tooltip.length > 0) {
-        tooltip += ', ';
+      if (subtitle.length > 0) {
+        subtitle += ', ';
       }
-      tooltip += tracker;
+      subtitle += tracker;
     });
 
-    ret = {
-      template: 'image[+tooltip]',
-      value: {
-        imageUrl: 'https://dl.dropboxusercontent.com/u/10795357/fa-eye.png',
-        tooltip: tooltip
-      }
+    ret.value = {
+      image: {
+        url: 'frontend/assets/fa-eye.png'
+      },
+      subtitle: subtitle
     };
   }
   return ret;

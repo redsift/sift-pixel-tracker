@@ -28,7 +28,7 @@ Redsift.Client.loadThreadListView = function (listInfo, supportedTemplates) {
 
     ret.value = {
       image: {
-        url: 'frontend/assets/fa-eye.png'
+        url: 'frontend/assets/fa-eye@2x.png'
       },
       subtitle: subtitle
     };

@@ -1,7 +1,7 @@
 {
   "name": "sift-pixel-tracker",
   "display-name": "Pixel Tracker",
-  "description": "This sift detects tracking emails by detecting 1x1 hidden pixels",
+  "description": "This sift detects emails that are being tracked",
   "author": "Deepak Prabhakara",
   "version": "1.0.0",
   "color": "#842F59",

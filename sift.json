@@ -5,6 +5,7 @@
   "author": "Deepak Prabhakara",
   "version": "1.0.0",
   "color": "#842F59",
+  "image": "https://static.redsift.io/assets/sifts/sift-pixel-tracker/cctv.jpg",
   "controller": {
     "entry-point": "frontend/controller.js",
     "types": [

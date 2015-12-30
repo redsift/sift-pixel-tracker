@@ -31,7 +31,17 @@ var attributes = function () {
     .style('top', function (d) { return d.y + '%'; })
     .style('width', function (d) { return d.dx + '%'; })
     .style('height', function (d) { return d.dy + '%'; })
-    .style('font-size', function (d) { return d.dx + '%'; })
+    .style('font-size', function (d) {
+      //console.log(d.dx + '%, d.dy=' + d.dy + ", d.depth=" + d.depth + ", d.area=" + d.area);
+
+      if (d.dx < 10) {
+        return '10px';
+      } else if (d.dx < 20) {
+        return '15px';
+      }
+      
+      return '20px';
+      })
     .style('text-anchor', 'middle')
     .style('background', function (d) {
       return color(getLabel(d));

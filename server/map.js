@@ -52,7 +52,7 @@ function checkForTracker(url) {
   return result;
 }
 
-function getPromises(msg) {
+function getPromises(msg, epoch) {
   var promise = new Promise(function (resolve, reject) {
 
     var result = {
@@ -117,7 +117,8 @@ function getPromises(msg) {
         value: {
           list: { trackers: result.trackers },
           detail: { trackers: result.trackers }
-        }
+        },
+        epoch: epoch
       };
     } else {
       return null;
@@ -129,7 +130,8 @@ function getPromises(msg) {
       return {
         name: 'threads',
         key: result.threadId + '/' + result.id,
-        value: result.trackers
+        value: result.trackers,
+        epoch: epoch
       };
     } else {
       return null;
@@ -151,14 +153,14 @@ module.exports = function (got) {
   //console.log('MAP: withData...', withData);
   var ret = [];
   for (var d of inData.data) {
-    //console.log('MAP: key: ', d.key);
+    //console.log('MAP: data: ', d);
     if (d.value) {
       try {
         var msg = JSON.parse(d.value);
         //console.log('MAP: msg.ID: ', msg.id, msg.threadId);
 
-        if (msg.htmlBody && msg.htmlBody.length > 0 /*&& msg.htmlBody.indexOf('adsafeprotected.com') > 0*/) {
-          var promises = getPromises(msg);
+        if (msg.htmlBody && msg.htmlBody.length > 0) {
+          var promises = getPromises(msg, d.epoch);
           //console.log('pushing promise', promise);
           ret.push(promises[0]);
           ret.push(promises[1]);

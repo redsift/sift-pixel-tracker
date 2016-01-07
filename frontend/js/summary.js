@@ -31,6 +31,9 @@ var attributes = function () {
     .style('top', function (d) { return d.y + '%'; })
     .style('width', function (d) { return d.dx + '%'; })
     .style('height', function (d) { return d.dy + '%'; })
+    .style('border-width', '1px')
+    .style('border-color', 'white')
+    .style('border-style', 'solid')
     .style('font-size', function (d) {
       //console.log(d.dx + '%, d.dy=' + d.dy + ", d.depth=" + d.depth + ", d.area=" + d.area);
 
@@ -43,9 +46,22 @@ var attributes = function () {
       return '20px';
       })
     .style('text-anchor', 'middle')
+    .style('text-align', 'center')
     .style('background', function (d) {
       return color(getLabel(d));
     })
+    .attr('title', getLabel)
+    .append('div')
+    //.style('display', 'inline-block')
+    .style('margin', 'auto')
+    .style('width', '100%')
+    .style('height', '100%')
+    .style('text-align', 'center')
+    /*.append('img')
+    .style('width', 'auto')
+    .style('height', 'auto')
+    .style('margin', 'auto')
+    .attr('href', 'https://upload.wikimedia.org/wikipedia/commons/b/b5/PayPal.svg');*/
     .text(getLabel);
 };
 

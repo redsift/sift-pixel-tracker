@@ -9,21 +9,7 @@ const styleHeightRegExp = /(?:max-|)height\s*:\s*([01]\s*px)/i;
 const styleWidthRegExp = /(?:max-|)width\s*:\s*([01]\s*px)/i;
 
 const urlRegExp = /:\/\/([^\/]*)/i;
-const trackersMap = {
-  'mailfoogae.appspot.com': 'Streak',
-  'bl-1.com': 'Bananatag',
-  'yesware.com': 'Yesware',
-  'mandrillapp.com/track': 'Mandrill',
-  'list-manage.com/track': 'MailChimp',
-  'pstmrk.it/open': 'Postmark',
-  'postmarkapp.com/open': 'Postmark',
-  'signauxtrois.com': 'Sidekick',
-  'sidekickopen28.com': 'Sidekick',
-  'tinyletterapp.com': 'TinyLetter',
-  'mixmax.com/api/track': 'MixMax',
-  'pixel.adsafeprotected.com': 'adsafeprotected.com',
-  'ad.doubleclick.net/ddm/ad': 'DoubleClick'
-};
+const trackersMap = require('./trackers.json');
 
 var trackers = [];
 Object.keys(trackersMap).forEach(function (key) {

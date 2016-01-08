@@ -32,7 +32,7 @@ function checkForTracker(url) {
     var newTracker = urlRegExp.exec(url);
     if (newTracker && newTracker.length > 1) {
       console.log('Found new tracker', newTracker[1]);
-      return newTracker[1];
+      return { name: newTracker[1]};
     }
   }
   return result;
@@ -72,15 +72,22 @@ function getPromises(msg, epoch) {
             var tracker = checkForTracker(attribs.src);
 
             //console.log('tracker=', tracker);
-            if (tracker !== null) {
+            if (tracker !== null && tracker.name != null) {
 
-              var count = result.trackers[tracker];
+              var trackerHash = result.trackers[tracker.name];
+              var count = 0;
               //console.log('count=', count, typeof count);
-              if (count === null || typeof count !== 'number') {
-                count = 0;
+              if (trackerHash) {
+                count = trackerHash.count;
+              } else {
+                trackerHash = {};
+                result.trackers[tracker.name] = trackerHash;
               }
               count += 1;
-              result.trackers[tracker] = count;
+              trackerHash.count = count;
+              if (tracker.url) {
+                trackerHash.url = tracker.url;
+              }
             }
           }
         }

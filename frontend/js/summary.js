@@ -4,9 +4,9 @@
 /*var data = {
   "name": "cluster",
   "children": [
-    { "name": "Yesware", "count": 5 },
-    { "name": "Sidekick", "count": 3 },
-    { "name": "Postmark", "count": 18 }
+    { "name": "Yesware", "count": 5, "url": "" },
+    { "name": "Sidekick", "count": 3, "url": "" },
+    { "name": "Postmark", "count": 18, "url": "" }
   ]
 };*/
 
@@ -22,17 +22,10 @@ var treemap =
 var div = d3.select('.treemap');
 
 function getLabel(d) {
-  if (d.children) {
+  if (d.name === 'no-trackers-found' || d.children) {
     return null;
   }
-  return d.name;// + (d.count ? ' (' + d.count + ')' : '');
-}
-
-function getLabelCount(d) {
-  if (d.children) {
-    return null;
-  }
-  return d.count;
+  return d.name + (d.count ? ' (' + d.count + ')' : '');
 }
 
 function hexToRgba(hex, alpha) {
@@ -64,24 +57,44 @@ var attributes = function () {
     .style('text-anchor', 'middle')
     .style('text-align', 'center')
     .style('background', function (d) {
-      if (d.children) {
+      if (d.name === 'no-trackers-found' || d.children) {
         return 'white';
       }
       return hexToRgba(color(getLabel(d)), 0.5);
     })
-    .attr('title', getLabelCount)
+    .attr('title', getLabel);
+    
+    this.html('');
+    this
     .append('div')
+    .attr('class', 'node-child')
     //.style('display', 'inline-block')
     .style('margin', 'auto')
-    .style('width', '100%')
-    .style('height', '100%')
+    .style('width', '50%')
+    .style('height', '50%')
     .style('text-align', 'center')
-    /*.append('img')
-    .style('width', 'auto')
-    .style('height', 'auto')
-    .style('margin', 'auto')
-    .attr('href', 'https://upload.wikimedia.org/wikipedia/commons/b/b5/PayPal.svg');*/
-    .text(getLabel);
+    .style('background-image', function (d) {
+      console.log('d.children=', d.children, d.name);
+      
+      if (d.name === 'no-trackers-found' || d.children) {
+        return null;
+      }
+      
+      if (d.url) {
+        return 'url("' + d.url + '")';
+      }
+      
+      return 'url("../frontend/assets/fa-eye.png")';
+    })
+    .style('background-position', 'center')
+    .style('background-repeat', 'no-repeat')
+    .style('background-size', function (d) {
+      if (d.url) {
+        return 'contain';
+      }
+      return 'initial';
+    });
+    //.text(getLabel);
 };
 
 function updateGraph(data) {

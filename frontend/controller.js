@@ -21,12 +21,23 @@ function getAllValues() {
         try {
           var obj = JSON.parse(result.value);
           Object.keys(obj.detail.trackers).forEach(function (tracker) {
-            var count = trackers[tracker];
-            if (count === null || typeof count !== 'number') {
-              count = 0;
+            var trackerHash = trackers[tracker];
+            if (!trackerHash) {
+              trackerHash = {};
+              trackerHash.count = 0;
+              trackers[tracker] = trackerHash;
             }
-            count += obj.detail.trackers[tracker];
-            trackers[tracker] = count;
+            console.log('obj.detail.trackers[tracker]', obj.detail.trackers[tracker]);
+            if (typeof obj.detail.trackers[tracker] === 'number') {
+              trackerHash.count += obj.detail.trackers[tracker];
+            } else {
+              if (obj.detail.trackers[tracker].count) {
+                trackerHash.count += obj.detail.trackers[tracker].count;
+              }
+              if (obj.detail.trackers[tracker].url) {
+                trackerHash.url = obj.detail.trackers[tracker].url;
+              }
+            }
           });
         } catch (err) {
           console.error('getAllValues err', err);
@@ -34,7 +45,7 @@ function getAllValues() {
       });
 
       Object.keys(trackers).forEach(function (tracker) {
-        graph.children.push({ name: tracker, count: trackers[tracker] });
+        graph.children.push({ name: tracker, count: trackers[tracker].count, url: trackers[tracker].url });
       });
 
       console.log('graph async=', graph, resolve, reject);
@@ -85,7 +96,7 @@ Sift.Controller.loadView = function (value, resolve, reject) {
     } else {
       result.data = {
         graph: {
-          'name': 'No Trackers found!',
+          'name': 'no-trackers-found',
           'children': [
           ]
         }
@@ -98,7 +109,11 @@ Sift.Controller.loadView = function (value, resolve, reject) {
     var trackers = value.params.detail.trackers;
 
     Object.keys(trackers).forEach(function (tracker) {
-      graph.children.push({ name: tracker, count: trackers[tracker] });
+      if (typeof trackers[tracker] === 'number') {
+        graph.children.push({ name: tracker, count: trackers[tracker] });
+      } else {
+        graph.children.push({ name: tracker, count: trackers[tracker].count, url: trackers[tracker].url }); 
+      }
     });
 
     result.data = { graph: graph };

@@ -29,15 +29,23 @@ module.exports = function (got) {
 
     }
     Object.keys(value).forEach(function (tracker) {
-      var count = trackers[tracker];
-      if (count === null || typeof count !== 'number') {
-        count = 0;
+      console.log('tracker=', tracker, value[tracker]);
+      var count = 0;
+      var trackerHash = trackers[tracker];
+      if (trackerHash) {
+        count = trackerHash.count;
+      } else {
+        trackerHash = {};
+        trackerHash.count = 0;
+        trackers[tracker] = trackerHash;
       }
-      count += value[tracker];
-      trackers[tracker] = count;
+      trackerHash.count += value[tracker].count;
+      if (value[tracker].url) {
+        trackerHash.url = value[tracker].url;
+      }
     });
   }
-  //console.log('THREADS: done: ', trackers);
+  console.log('THREADS: done: ', trackers);
   //console.log('MAP: mapped length: ', ret.length);
   return { name: 'tidList', key: query[0], value: { list: { trackers: trackers }, detail: { trackers: trackers } }, epoch: epoch };
 };

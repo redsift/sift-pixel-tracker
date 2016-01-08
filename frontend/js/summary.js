@@ -22,7 +22,22 @@ var treemap =
 var div = d3.select('.treemap');
 
 function getLabel(d) {
-  return d.name + (d.count ? ' (' + d.count + ')' : '');
+  if (d.children) {
+    return null;
+  }
+  return d.name;// + (d.count ? ' (' + d.count + ')' : '');
+}
+
+function getLabelCount(d) {
+  if (d.children) {
+    return null;
+  }
+  return d.count;
+}
+
+function hexToRgba(hex, alpha) {
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? 'rgba(' + parseInt(result[1], 16) + ',' + parseInt(result[2], 16) + ',' + parseInt(result[3], 16) + ',' + alpha + ')': hex; 
 }
 
 var attributes = function () {
@@ -48,9 +63,12 @@ var attributes = function () {
     .style('text-anchor', 'middle')
     .style('text-align', 'center')
     .style('background', function (d) {
-      return color(getLabel(d));
+      if (d.children) {
+        return 'white';
+      }
+      return hexToRgba(color(getLabel(d)), 0.5);
     })
-    .attr('title', getLabel)
+    .attr('title', getLabelCount)
     .append('div')
     //.style('display', 'inline-block')
     .style('margin', 'auto')

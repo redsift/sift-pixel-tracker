@@ -49,6 +49,7 @@ var attributes = function () {
     .style('border-width', '1px')
     .style('border-color', 'white')
     .style('border-style', 'solid')
+    .style('box-sizing', 'border-box')
     .style('font-size', function (d) {
       //console.log(d.dx + '%, d.dy=' + d.dy + ", d.depth=" + d.depth + ", d.area=" + d.area);
 

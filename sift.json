@@ -29,6 +29,9 @@
               {
                 "date": "between now and 1 month before now"
               }
+            ],
+            "wants": [
+                "htmlBody"
             ]
           }
         }

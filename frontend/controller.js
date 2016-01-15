@@ -34,8 +34,8 @@ function getAllValues() {
               if (obj.detail.trackers[tracker].count) {
                 trackerHash.count += obj.detail.trackers[tracker].count;
               }
-              if (obj.detail.trackers[tracker].url) {
-                trackerHash.url = obj.detail.trackers[tracker].url;
+              if (obj.detail.trackers[tracker].name) {
+                trackerHash.name = obj.detail.trackers[tracker].name;
               }
             }
           });
@@ -45,7 +45,7 @@ function getAllValues() {
       });
 
       Object.keys(trackers).forEach(function (tracker) {
-        graph.children.push({ name: tracker, count: trackers[tracker].count, url: trackers[tracker].url });
+        graph.children.push({ id: tracker, count: trackers[tracker].count, name: trackers[tracker].name });
       });
 
       console.log('graph async=', graph, resolve, reject);

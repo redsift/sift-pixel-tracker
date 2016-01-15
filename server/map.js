@@ -24,18 +24,18 @@ function checkForTracker(url) {
     //console.log('checkForTracker', tracker);
     if (url.indexOf(tracker) >= 0) {
       //console.log('fround tracker', trackersMap[tracker]);
-      result = trackersMap[tracker];
-      return true;
+      result = trackersMap[tracker].name;
+      return;
     }
   });
-  if (result === null) {
-    var newTracker = urlRegExp.exec(url);
-    if (newTracker && newTracker.length > 1) {
-      console.log('Found new tracker', newTracker[1]);
-      return { name: newTracker[1]};
-    }
+
+  var newTracker = urlRegExp.exec(url);
+  if (newTracker && newTracker.length > 1) {
+    //console.log('Found new tracker', newTracker[1]);
+    return { id: newTracker[1], name: result ? result : newTracker[1] };
   }
-  return result;
+
+  return { id: result, name: result };
 }
 
 function getPromises(msg, epoch) {
@@ -71,22 +71,25 @@ function getPromises(msg, epoch) {
             //console.log('name, attribs=', tagname, attribs.width, attribs.height, attribs.src);
             var tracker = checkForTracker(attribs.src);
 
-            //console.log('tracker=', tracker);
-            if (tracker !== null && tracker.name != null) {
+            //console.log('tracker map=', tracker);
+            if (tracker !== null && tracker.id != null) {
 
-              var trackerHash = result.trackers[tracker.name];
+              var trackerHash = result.trackers[tracker.id];
               var count = 0;
               //console.log('count=', count, typeof count);
               if (trackerHash) {
                 count = trackerHash.count;
               } else {
                 trackerHash = {};
-                result.trackers[tracker.name] = trackerHash;
+                result.trackers[tracker.id] = trackerHash;
               }
               count += 1;
               trackerHash.count = count;
-              if (tracker.url) {
-                trackerHash.url = tracker.url;
+              if (tracker.id) {
+                trackerHash.id = tracker.id;
+              }
+              if (tracker.name) {
+                trackerHash.name = tracker.name;
               }
             }
           }
@@ -104,6 +107,7 @@ function getPromises(msg, epoch) {
 
   var promise1 = promise.then(function (result) {
     if (result.trackers && Object.keys(result.trackers).length > 0) {
+      //console.log('promise1 result=', result);
       return {
         name: 'idList',
         key: result.id,
@@ -118,8 +122,8 @@ function getPromises(msg, epoch) {
     }
   });
   var promise2 = promise.then(function (result) {
-
     if (result.trackers && Object.keys(result.trackers).length > 0) {
+      //console.log('promise2 result=', result);
       return {
         name: 'threads',
         key: result.threadId + '/' + result.id,

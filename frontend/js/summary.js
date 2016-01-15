@@ -72,6 +72,8 @@ var attributes = function () {
     .style('margin', 'auto')
     .style('width', '50%')
     .style('height', '50%')
+    .style('max-height', '100px')
+    .style('max-width', '100px')
     .style('text-align', 'center')
     .style('background-image', function (d) {
       console.log('d.children=', d.children, d.name);
@@ -80,8 +82,8 @@ var attributes = function () {
         return null;
       }
       
-      if (d.url) {
-        return 'url("' + d.url + '")';
+      if (d.id) {
+        return 'url("' + 'https://logo.clearbit.com/' + d.id + '?&size=200' + '")';
       }
       
       return 'url("../frontend/assets/fa-eye.png")';
@@ -89,7 +91,7 @@ var attributes = function () {
     .style('background-position', 'center')
     .style('background-repeat', 'no-repeat')
     .style('background-size', function (d) {
-      if (d.url) {
+      if (d.id) {
         return 'contain';
       }
       return 'initial';

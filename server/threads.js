@@ -29,7 +29,7 @@ module.exports = function (got) {
 
     }
     Object.keys(value).forEach(function (tracker) {
-      console.log('tracker=', tracker, value[tracker]);
+      console.log('tracker threads=', tracker, value[tracker]);
       var count = 0;
       var trackerHash = trackers[tracker];
       if (trackerHash) {
@@ -40,8 +40,11 @@ module.exports = function (got) {
         trackers[tracker] = trackerHash;
       }
       trackerHash.count += value[tracker].count;
-      if (value[tracker].url) {
-        trackerHash.url = value[tracker].url;
+      if (value[tracker].id) {
+        trackerHash.id = value[tracker].id;
+      }
+      if (value[tracker].name) {
+        trackerHash.name = value[tracker].name;
       }
     });
   }

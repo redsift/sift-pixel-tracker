@@ -128,7 +128,7 @@ Sift.Storage.addUpdateListener('_tid.list', function (value) {
   if (summaryView) {
     console.log('sift-pixel-tracker: storage updated: ', value);
     getAllValues().then(function (graph) {
-      Sift.View.notify('graph', graph);
+      Sift.Controller.notifyListeners('graph', graph);
     });
   }
 });

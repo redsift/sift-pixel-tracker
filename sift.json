@@ -42,7 +42,7 @@
       {
         "#": "Messages mapper",
         "implementation": {
-          "node": "server/map.js"
+          "javascript": "server/map.js"
         },
         "input": {
           "bucket": "trackers"
@@ -55,7 +55,7 @@
       {
         "#": "Threads aggregator",
         "implementation": {
-          "node": "server/threads.js"
+          "javascript": "server/threads.js"
         },
         "input": {
           "bucket": "threads",

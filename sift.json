@@ -64,6 +64,39 @@
         "outputs": {
           "tidList": {}
         }
+      },
+      {
+        "#": "Cron test node invalid",
+        "implementation": {
+          "javascript": "server/cron-invalid.js",
+          "when": {
+            "interval": 90
+          }
+        },
+        "input": {
+          "bucket": "trackers"
+        },
+        "outputs": {
+          "idList": {},
+          "threads": {}
+        }
+      },
+      {
+        "#": "Cron test node valid",
+        "implementation": {
+          "javascript": "server/cron.js",
+          "when": {
+            "crontab": "0 0/1 * 1/1 * ? *"
+          }
+        },
+        "input": {
+          "bucket": "threads",
+          "select": "/*"
+        },
+        "outputs": {
+          "idList": {},
+          "threads": {}
+        }
       }
     ],
     "stores": {

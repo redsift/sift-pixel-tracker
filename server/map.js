@@ -141,6 +141,9 @@ function getPromises(msg, epoch) {
 
 // Entry point for DAG node
 module.exports = function (got) {
+  console.log('env var:', process.env.REDSIFT_LARGE_STORAGE_attachments);
+  var arrayOfFiles = require('fs').readdirSync(process.env.REDSIFT_LARGE_STORAGE_attachments);
+  console.log('arrayOfFiles=', arrayOfFiles);
   //console.log('MAP: mapping... got', got);
   const inData = got['in'];
   //const withData = got['with'];

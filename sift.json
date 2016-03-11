@@ -32,7 +32,8 @@
             ],
             "wants": [
                 "archive",
-                "htmlBody"
+                "htmlBody",
+                { "feature": "attachments", "parameter": "attachments"}
             ]
           }
         }
@@ -42,7 +43,10 @@
       {
         "#": "Messages mapper",
         "implementation": {
-          "javascript": "server/map.js"
+          "javascript": "server/map.js",
+          "qos": {
+            "large-storage": ["attachments:ro"]
+          }
         },
         "input": {
           "bucket": "trackers"

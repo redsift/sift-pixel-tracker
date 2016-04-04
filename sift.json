@@ -6,19 +6,15 @@
   "version": "1.0.0",
   "color": "#842F59",
   "image": "https://static.redsift.io/assets/sifts/sift-pixel-tracker/cctv.jpg",
-  "controller": {
-    "entry-point": "frontend/controller.js",
-    "types": [
-      "summary",
-      "email-detail"
-    ],
-    "minimum-size": {
-      "width": "compact",
-      "height": "compact"
+  "interfaces": {
+    "email": {
+      "thread": {
+        "controller": "frontend/controller.js"
+      }
+    },
+    "summary": {
+      "controller": "frontend/controller.js"
     }
-  },
-  "client": {
-    "entry-point": "frontend/client.js"
   },
   "dag": {
     "inputs": {

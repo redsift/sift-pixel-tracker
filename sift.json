@@ -27,9 +27,12 @@
               }
             ],
             "wants": [
-                "archive",
-                "htmlBody",
-                { "feature": "attachments", "parameter": "attachments"}
+              "archive",
+              "htmlBody",
+              {
+                "feature": "attachments",
+                "parameter": "attachments"
+              }
             ]
           }
         }
@@ -41,7 +44,9 @@
         "implementation": {
           "javascript": "server/map.js",
           "qos": {
-            "large-storage": ["attachments:ro"]
+            "large-storage": [
+              "attachments:ro"
+            ]
           }
         },
         "input": {

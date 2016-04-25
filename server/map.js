@@ -149,7 +149,6 @@ module.exports = function (got) {
   //console.log('MAP: inData...', inData);
   //console.log('MAP: withData...', withData);
   var ret = [];
-  c
   for (var d of inData.data) {
     //console.log('MAP: data: ', d);
     if (d.value) {

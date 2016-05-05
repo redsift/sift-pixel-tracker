@@ -70,10 +70,10 @@
     "outputs": {
       "exports": {
         "idList": {
-          "import": "_id.list"
+          "import": "_email.id"
         },
         "tidList": {
-          "import": "_tid.list"
+          "import": "_email.tid"
         }
       }
     }

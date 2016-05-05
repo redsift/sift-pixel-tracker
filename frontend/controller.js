@@ -11,7 +11,7 @@ var summaryView = false;
 
 function getAllValues() {
   return new Promise(function (resolve, reject) {
-    Sift.Storage.getAll({ bucket: '_tid.list' }).then(function (results) {
+    Sift.Storage.getAll({ bucket: '_email.tid' }).then(function (results) {
       //console.log('allValues=', results);
       var graph = {};
       graph.name = 'Trackers';
@@ -72,9 +72,9 @@ function loadSummaryView(value, resolve, reject) {
 // Function: loadView
 // Description: Invoked when a Sift has transitioned to a final size class
 // Parameters:
-// @value: { 
+// @value: {
 //          sizeClass: {
-//            previous: {width: 'compact'|'full', height: 'compact'|'full'}, 
+//            previous: {width: 'compact'|'full', height: 'compact'|'full'},
 //            current:  {width: 'compact'|'full', height: 'compact'|'full'}
 //          },
 //          type: 'compose'|'email-detail'|'summary',
@@ -112,7 +112,7 @@ Sift.Controller.loadView = function (value, resolve, reject) {
       if (typeof trackers[tracker] === 'number') {
         graph.children.push({ name: tracker, count: trackers[tracker] });
       } else {
-        graph.children.push({ name: tracker, count: trackers[tracker].count, url: trackers[tracker].url }); 
+        graph.children.push({ name: tracker, count: trackers[tracker].count, url: trackers[tracker].url });
       }
     });
 
@@ -124,7 +124,7 @@ Sift.Controller.loadView = function (value, resolve, reject) {
   return result;
 };
 
-Sift.Storage.addUpdateListener('_tid.list', function (value) {
+Sift.Storage.addUpdateListener('_email.tid', function (value) {
   if (summaryView) {
     console.log('sift-pixel-tracker: storage updated: ', value);
     getAllValues().then(function (graph) {

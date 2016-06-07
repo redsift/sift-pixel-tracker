@@ -18,6 +18,38 @@
   },
   "dag": {
     "inputs": {
+      "config": {
+        "bots": {
+          "slack": {
+            "clientID": "47738535073.47732460560",
+            "ambientMentionDuration": 300,
+            "sendIsTyping": true,
+            "permission": "team"
+          }
+        }
+      },
+      "bots": {
+        "slack": {
+          "temp": {
+            "filter": {
+              "conditions": [
+                {
+                  "type": "message:direct_mention,direct_message,mention,ambient"
+                },
+                {
+                  "text": {
+                    "regexp": {
+                      "pattern": "temp",
+                      "flags": "i"
+                    }
+                  }
+                }
+              ],
+              "operator": "AND"
+            }
+          }
+        }
+      },
       "emails": {
         "trackers": {
           "filter": {
@@ -35,6 +67,19 @@
       }
     },
     "nodes": [
+      {
+        "#": "Temp Slack test",
+        "implementation": {
+          "javascript": "server/temp.js"
+        },
+        "input": {
+          "bucket": "temp"
+        },
+        "outputs": {
+          "idList": {},
+          "threads": {}
+        }
+      },
       {
         "#": "Messages mapper",
         "implementation": {

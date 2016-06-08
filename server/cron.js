@@ -1,4 +1,4 @@
-/** 
+/**
  * Cron test node.
  */
 'use strict';

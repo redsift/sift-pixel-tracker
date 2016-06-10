@@ -23,7 +23,8 @@
           "slack": {
             "clientID": "47738535073.47732460560",
             "ambientMentionDuration": 300,
-            "permission": "team"
+            "permission": "team",
+            "scopes": "team:read,stars:read"
           }
         }
       },
@@ -33,7 +34,7 @@
             "filter": {
               "conditions": [
                 {
-                  "type": "message:direct_mention,direct_message,mention,ambient"
+                  "type": "message:direct_mention,direct_message,mention"
                 },
                 {
                   "text": {

@@ -30,7 +30,7 @@ function getLabel(d) {
 
 function hexToRgba(hex, alpha) {
     var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? 'rgba(' + parseInt(result[1], 16) + ',' + parseInt(result[2], 16) + ',' + parseInt(result[3], 16) + ',' + alpha + ')': hex; 
+    return result ? 'rgba(' + parseInt(result[1], 16) + ',' + parseInt(result[2], 16) + ',' + parseInt(result[3], 16) + ',' + alpha + ')': hex;
 }
 
 var attributes = function () {
@@ -51,7 +51,7 @@ var attributes = function () {
       } else if (d.dx < 20) {
         return '15px';
       }
-      
+
       return '20px';
       })
     .style('text-anchor', 'middle')
@@ -63,7 +63,7 @@ var attributes = function () {
       return hexToRgba(color(getLabel(d)), 0.5);
     })
     .attr('title', getLabel);
-    
+
     this.html('');
     this
     .append('div')
@@ -77,15 +77,15 @@ var attributes = function () {
     .style('text-align', 'center')
     .style('background-image', function (d) {
       console.log('d.children=', d.children, d.name);
-      
+
       if (d.name === 'no-trackers-found' || d.children) {
         return null;
       }
-      
+
       if (d.id) {
         return 'url("' + 'https://logo.clearbit.com/' + d.id + '?&size=200' + '")';
       }
-      
+
       return 'url("../frontend/assets/fa-eye.png")';
     })
     .style('background-position', 'center')
@@ -100,6 +100,7 @@ var attributes = function () {
 };
 
 function updateGraph(data) {
+  console.log('updateGraph:', JSON.stringify(data));
   var node =
     div.datum(data).selectAll('.node')
       .data(treemap.nodes);

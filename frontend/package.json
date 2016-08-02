@@ -1,0 +1,27 @@
+{
+  "name": "sift-pixel-tracker",
+  "version": "1.0.0",
+  "description": "## Development setup",
+  "main": "bundle.config.js",
+  "scripts": {
+    "build": "gulp build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Redsift/sift-pixel-tracker.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Redsift/sift-pixel-tracker/issues"
+  },
+  "homepage": "https://github.com/Redsift/sift-pixel-tracker#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "@redsift/sift-sdk-web": "0.5.2",
+    "@redsift/redsift-bundler": "0.4.2",
+    "gulp": "3.9.1",
+    "moment": "2.14.1"
+  }
+}

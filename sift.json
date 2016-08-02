@@ -9,11 +9,11 @@
   "interfaces": {
     "email": {
       "thread": {
-        "controller": "frontend/controller.js"
+        "controller": "dist/js/controller.umd-es2015.js"
       }
     },
     "summary": {
-      "controller": "frontend/controller.js"
+      "controller": "dist/js/controller.umd-es2015.js"
     }
   },
   "dag": {

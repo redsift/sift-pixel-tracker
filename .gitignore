@@ -2,4 +2,6 @@ email_creds.json
 .*_run.json
 sdk_runs/
 sdk_tmp/
-server/node_modules
+node_modules
+npm-debug.log
+dist/

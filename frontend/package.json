@@ -5,7 +5,8 @@
   "main": "bundle.config.js",
   "scripts": {
     "build": "gulp build",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "pretest": "npm outdated",
+    "test": "echo \"Error: no test specified\" && exit 0"
   },
   "repository": {
     "type": "git",
@@ -19,9 +20,11 @@
   "homepage": "https://github.com/Redsift/sift-pixel-tracker#readme",
   "dependencies": {},
   "devDependencies": {
-    "@redsift/sift-sdk-web": "0.5.2",
-    "@redsift/redsift-bundler": "0.4.2",
-    "gulp": "3.9.1",
-    "moment": "2.14.1"
+    "@redsift/redsift-bundler": "0.4.3",
+    "@redsift/sift-sdk-web": "0.5.7",
+    "d3-hierarchy": "^1.0.2",
+    "d3-scale": "^1.0.3",
+    "d3-selection": "^1.0.2",
+    "gulp": "3.9.1"
   }
 }

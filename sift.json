@@ -10,6 +10,9 @@
     "email": {
       "thread": {
         "controller": "dist/js/controller.umd-es2015.js"
+      },
+      "client": {
+        "controller": "dist/js/email-client-controller.umd-es2015.js"
       }
     },
     "summary": {

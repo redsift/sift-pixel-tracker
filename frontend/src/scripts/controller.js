@@ -87,9 +87,10 @@ export default class PixelTrackerController extends SiftController {
   }
 
   _getAllValues() {
+    let out = this.storage;
     return new Promise(function (resolve, reject) {
-      this.storage.getAll({ bucket: '_email.tid' }).then(function (results) {
-        //console.log('allValues=', results);
+      out.getAll({ bucket: '_email.tid' }).then(function (results) {
+        console.log('allValues=', results);
         var graph = {
           name: 'Trackers',
           children: []

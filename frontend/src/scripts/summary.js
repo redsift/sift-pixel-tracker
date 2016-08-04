@@ -1,112 +1,85 @@
-'use strict';
-/* globals d3 */
+/**
+ * sift-pixel-tracker: summary view
+ */
+import { select } from 'd3-selection';
+import { treemap, hierarchy } from 'd3-hierarchy';
+import { scaleOrdinal} from 'd3-scale';
+import { SiftView, registerSiftView } from '@redsift/sift-sdk-web';
+import { presentation10 } from '@redsift/d3-rs-theme';
 
-/*var data = {
-  "name": "cluster",
-  "children": [
-    { "name": "Yesware", "count": 5, "url": "" },
-    { "name": "Sidekick", "count": 3, "url": "" },
-    { "name": "Postmark", "count": 18, "url": "" }
-  ]
-};*/
 
-var color = d3.scale.category20c();
+export default class SummaryView extends SiftView {
+  constructor() {
+    // You have to call the super() method to initialize the base class.
+    super();
 
-var treemap =
-  d3.layout.treemap()
-  // use 100 x 100 px, which we'll apply as % later
-    .size([100, 100])
-    .sticky(false)
-    .value(function (d) { return d.count; });
+    // Stores the currently displayed data so view can be reflown during transitions
+    this._div = select('.treemap');
 
-var div = d3.select('.treemap');
 
-function getLabel(d) {
-  if (d.name === 'no-trackers-found' || d.children) {
-    return null;
+    // Subscribe to 'calendarupdated' updates from the Controller
+    this.controller.subscribe('graph', this.onGraphUpdated.bind(this));
+
+
+    // The SiftView provides lifecycle methods for when the Sift is fully loaded into the DOM (onLoad) and when it is
+    // resizing (onResize).
+    // this.registerOnLoadHandler(this.onLoad.bind(this));
+    // this.registerOnResizeHandler(this.onResize.bind(this));
   }
-  return d.name + (d.count ? ' (' + d.count + ')' : '');
+
+  _updateGraph(data){
+    // console.log('updateGraph:', data);
+    let treeMap = treemap()
+    .size([100, 100])
+    .round(true);
+
+    var hr = hierarchy(data)
+      .sum(d => d.count)
+
+    treeMap(hr);
+
+    let getLabel = d => {
+      return d.data.name === 'no-trackers-found' || d.children
+      ? null
+      : d.data.name + (d.data.count ? ' (' + d.data.count + ')' : '')
+    };
+
+    let scale = scaleOrdinal(presentation10.lighter);
+
+    this._div
+      .selectAll('.node')
+      .data(hr.leaves())
+      .enter().append('div')
+        .attr('class', 'node')
+        .attr('title', getLabel)
+        .style('left', d => d.x0 + '%')
+        .style('top', d => d.y0 + '%')
+        .style('width', d => d.x1 - d.x0 + '%')
+        .style('height', d => d.y1 - d.y0 + '%')
+        .style('font-size', d => (d.x1 < 10 ? '10' : d.x1 < 20 ? '15' : '20' ) + 'px')
+        .style('background', d => d.name === 'no-trackers-found' || d.children ? 'white' : scale(getLabel(d)))
+      .append('div')
+        .attr('class', 'node-child')
+        .style('background-image', d => {
+          return d.name === 'no-trackers-found' || d.children ? null
+            : d.data.id ? `url("https://logo.clearbit.com/${d.data.id}?&size=200")`
+            : `url("assets/fa-eye.png")`;
+        })
+        .style('background-size', d => d.data.id ? 'contain' : 'initial')
+  }
+
+  onGraphUpdated(g){
+     console.log('sift-pixel-tracker: graph', g);
+    this._updateGraph(g);
+  }
+
+  presentView(value){
+    console.log('sift-pixel-tracker: presentView: ', value);
+    this._updateGraph(value.data.graph);
+  }
+  willPresentView(value){
+    console.log('sift-pixel-tracker: willPresentView: ', value);
+  }
 }
 
-function hexToRgba(hex, alpha) {
-    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? 'rgba(' + parseInt(result[1], 16) + ',' + parseInt(result[2], 16) + ',' + parseInt(result[3], 16) + ',' + alpha + ')': hex;
-}
-
-var attributes = function () {
-  this
-    .style('left', function (d) { return d.x + '%'; })
-    .style('top', function (d) { return d.y + '%'; })
-    .style('width', function (d) { return d.dx + '%'; })
-    .style('height', function (d) { return d.dy + '%'; })
-    .style('border-width', '1px')
-    .style('border-color', 'white')
-    .style('border-style', 'solid')
-    .style('box-sizing', 'border-box')
-    .style('font-size', function (d) {
-      //console.log(d.dx + '%, d.dy=' + d.dy + ", d.depth=" + d.depth + ", d.area=" + d.area);
-
-      if (d.dx < 10) {
-        return '10px';
-      } else if (d.dx < 20) {
-        return '15px';
-      }
-
-      return '20px';
-      })
-    .style('text-anchor', 'middle')
-    .style('text-align', 'center')
-    .style('background', function (d) {
-      if (d.name === 'no-trackers-found' || d.children) {
-        return 'white';
-      }
-      return hexToRgba(color(getLabel(d)), 0.5);
-    })
-    .attr('title', getLabel);
-
-    this.html('');
-    this
-    .append('div')
-    .attr('class', 'node-child')
-    //.style('display', 'inline-block')
-    .style('margin', 'auto')
-    .style('width', '50%')
-    .style('height', '50%')
-    .style('max-height', '100px')
-    .style('max-width', '100px')
-    .style('text-align', 'center')
-    .style('background-image', function (d) {
-      console.log('d.children=', d.children, d.name);
-
-      if (d.name === 'no-trackers-found' || d.children) {
-        return null;
-      }
-
-      if (d.id) {
-        return 'url("' + 'https://logo.clearbit.com/' + d.id + '?&size=200' + '")';
-      }
-
-      return 'url("../frontend/assets/fa-eye.png")';
-    })
-    .style('background-position', 'center')
-    .style('background-repeat', 'no-repeat')
-    .style('background-size', function (d) {
-      if (d.id) {
-        return 'contain';
-      }
-      return 'initial';
-    });
-    //.text(getLabel);
-};
-
-function updateGraph(data) {
-  console.log('updateGraph:', JSON.stringify(data));
-  var node =
-    div.datum(data).selectAll('.node')
-      .data(treemap.nodes);
-
-  node.enter().append('div')
-    .attr('class', 'node');
-
-  node.call(attributes);
-}
+registerSiftView(new SummaryView(window));

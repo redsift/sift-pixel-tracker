@@ -4,4 +4,3 @@ sdk_runs/
 sdk_tmp/
 node_modules
 npm-debug.log
-dist/

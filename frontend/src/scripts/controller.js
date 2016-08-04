@@ -70,11 +70,17 @@ export default class PixelTrackerController extends SiftController {
       };
       var trackers = state.params.detail.trackers;
 
-      Object.keys(trackers).forEach(function (tracker) {
+      Object.keys(trackers).forEach(tracker => {
         if (typeof trackers[tracker] === 'number') {
-          graph.children.push({ name: tracker, count: trackers[tracker] });
+          graph.children.push({
+            name: tracker,
+            count: trackers[tracker]
+          });
         } else {
-          graph.children.push({ name: tracker, count: trackers[tracker].count, url: trackers[tracker].url });
+          graph.children.push({
+            name: tracker,
+            count: trackers[tracker].count,
+            url: trackers[tracker].url });
         }
       });
 
@@ -87,29 +93,27 @@ export default class PixelTrackerController extends SiftController {
   }
 
   _getAllValues() {
-    let out = this.storage;
-    return new Promise(function (resolve, reject) {
-      out.getAll({ bucket: '_email.tid' }).then(function (results) {
-        console.log('allValues=', results);
-        var graph = {
+    return this.storage.getAll({ bucket: '_email.tid' })
+      .then(results => {
+        // console.log('allValues=', results);
+        let graph = {
           name: 'Trackers',
           children: []
         }
-        var trackers = {};
+        let trackers = {};
         results.forEach(function (result) {
           try {
-            var obj = JSON.parse(result.value);
-            Object.keys(obj.detail.trackers).forEach(function (tracker) {
-              var name = obj.detail.trackers[tracker].name.toLowerCase();
+            let obj = JSON.parse(result.value);
+            Object.keys(obj.detail.trackers).forEach(tracker => {
+              let name = obj.detail.trackers[tracker].name.toLowerCase();
               //console.log('tracker=', tracker);
               //console.log('tracker name=', name);
-              var trackerHash = trackers[name];
+              let trackerHash = trackers[name];
               if (!trackerHash) {
-                trackerHash = {};
-                trackerHash.count = 0;
+                trackerHash = { count: 0 };
                 trackers[name] = trackerHash;
               }
-              console.log('obj.detail.trackers[tracker]', obj.detail.trackers[tracker]);
+              // console.log('obj.detail.trackers[tracker]', obj.detail.trackers[tracker]);
               if (typeof obj.detail.trackers[tracker] === 'number') {
                 trackerHash.count += obj.detail.trackers[tracker];
               } else {
@@ -129,18 +133,20 @@ export default class PixelTrackerController extends SiftController {
           }
         });
 
-        Object.keys(trackers).forEach(function (tracker) {
+        Object.keys(trackers).forEach(tracker =>{
           //console.log('graphing:', tracker, trackers[tracker]);
-          graph.children.push({ id: trackers[tracker].id, count: trackers[tracker].count, name: trackers[tracker].name });
+          graph.children.push({
+            id: trackers[tracker].id,
+            count: trackers[tracker].count,
+            name: trackers[tracker].name
+          });
         });
 
-        console.log('graph async=', graph, resolve, reject);
-        resolve(graph);
+        // console.log('graph async=', graph);
+        return graph
       }).catch(function (err) {
         console.log('Got error', err);
-        reject(err);
       });
-    });
   }
 
 }

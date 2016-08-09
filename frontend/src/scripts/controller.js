@@ -108,18 +108,14 @@ export default class PixelTrackerController extends SiftController {
                 trackers[name] = trackerHash;
               }
               // console.log('obj.detail.trackers[tracker]', obj.detail.trackers[tracker]);
-              if (typeof obj.detail.trackers[tracker] === 'number') {
-                trackerHash.count += obj.detail.trackers[tracker];
-              } else {
-                if (obj.detail.trackers[tracker].count) {
-                  trackerHash.count += obj.detail.trackers[tracker].count;
-                }
-                if (obj.detail.trackers[tracker].name) {
-                  trackerHash.name = obj.detail.trackers[tracker].name;
-                }
-                if (obj.detail.trackers[tracker].id) {
-                  trackerHash.id = obj.detail.trackers[tracker].id;
-                }
+              if (obj.detail.trackers[tracker].count) {
+                trackerHash.count += obj.detail.trackers[tracker].count;
+              }
+              if (obj.detail.trackers[tracker].name) {
+                trackerHash.name = obj.detail.trackers[tracker].name;
+              }
+              if (obj.detail.trackers[tracker].id) {
+                trackerHash.id = obj.detail.trackers[tracker].id;
               }
             });
           } catch (err) {

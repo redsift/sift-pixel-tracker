@@ -63,5 +63,18 @@
   "click.mail.theguardian.com": { "name": "The Guardian" },
   "paypal.112.2o7.net": { "name": "Paypal" },
   "trackfun.it": { "name": "Track Fun" },
-  "images.vouchercloud.com": { "name": "Voucher Cloud" }
+  "images.vouchercloud.com": { "name": "Voucher Cloud" },
+  "email-assets.getpocket.com": {"name": "Pocket"},
+  "email.getpocket.com": {"name": "Pocket"},
+  "www.booking.com": {"name": "Booking.com"},
+  "sg.booking.com": {"name": "Booking.com"},
+  "vmemail.virginmedia.com" : {"name": "Virgin Media"},
+  "metrics.virginmedia.com" : {"name": "Virgin Media"},
+  "www.paypalobjects.com": {"name": "Paypal"},
+  "paypal.112.2O7.net": {"name": "Paypal"},
+  "t.paypal.com": {"name": "Paypal"},
+  "www.amazon.com": { "name": "Amazon.com"},
+  "www.amazon.co.uk": {"name": "Amazon.com"},
+  "yplanapp-newsletter.s3.amazonaws.com": {"name": "Amazon.com"}
+
 }

@@ -18,11 +18,12 @@
     "url": "https://github.com/Redsift/sift-pixel-tracker/issues"
   },
   "homepage": "https://github.com/Redsift/sift-pixel-tracker#readme",
-  "dependencies": {},
+  "dependencies": {
+    "@redsift/d3-rs-treemap": "^0.1.0"
+  },
   "devDependencies": {
-    "@redsift/d3-rs-theme": "^0.4.1",
     "@redsift/redsift-bundler": "0.4.3",
-    "@redsift/sift-sdk-web": "0.5.9",
+    "@redsift/sift-sdk-web": "0.6.0",
     "d3-hierarchy": "^1.0.2",
     "d3-scale": "^1.0.3",
     "d3-selection": "^1.0.2",

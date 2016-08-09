@@ -47,23 +47,16 @@ export default class PixelTrackerController extends SiftController {
   loadView(state) {
     console.log('sift-pixel-tracker: loadView', state);
     var result = {
-      html: 'view.html'
-    };
-
-    if (!state.params || Object.keys(state.params).length === 0) {
-      if (state.type === 'summary') {
-        // return async
-        this._summaryView = true;
-        result.data = this._getAllValues().then(g => ({ graph: g }))
-      } else {
-        result.data = {
-          graph: {
-            'name': 'no-trackers-found',
-            'children': []
-          }
-        };
+      html: 'view.html',
+      data: {
+        graph: {}
       }
-    } else {
+    };
+    if (state.type === 'summary') {
+      // return async
+      this._summaryView = true;
+      result.data = this._getAllValues().then(g => ({graph: g}))
+    } else if (state.type === 'email-thread'){
       var graph = {
         name: 'Trackers',
         children: []
@@ -71,20 +64,20 @@ export default class PixelTrackerController extends SiftController {
       var trackers = state.params.detail.trackers;
 
       Object.keys(trackers).forEach(tracker => {
-        if (typeof trackers[tracker] === 'number') {
-          graph.children.push({
-            name: tracker,
-            count: trackers[tracker]
-          });
-        } else {
-          graph.children.push({
-            name: tracker,
-            count: trackers[tracker].count,
-            url: trackers[tracker].url });
-        }
+        graph.children.push({
+          name: tracker,
+          l: tracker,
+          v: trackers[tracker].count,
+          u: `https://logo.clearbit.com/${tracker}?size=400`
+        });
       });
 
-      result.data = { graph: graph };
+      result.data.graph = graph;
+    }else {
+      result.data.graph = {
+        'name': 'no-trackers-found',
+        'children': []
+      };
     }
 
     console.log('result sync=', result);
@@ -137,8 +130,10 @@ export default class PixelTrackerController extends SiftController {
           //console.log('graphing:', tracker, trackers[tracker]);
           graph.children.push({
             id: trackers[tracker].id,
-            count: trackers[tracker].count,
-            name: trackers[tracker].name
+            name: trackers[tracker].name,
+            v: trackers[tracker].count,
+            l: trackers[tracker].name,
+            u: `https://logo.clearbit.com/${trackers[tracker].id}?size=400`
           });
         });
 

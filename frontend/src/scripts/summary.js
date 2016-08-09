@@ -2,10 +2,8 @@
  * sift-pixel-tracker: summary view
  */
 import { select } from 'd3-selection';
-import { treemap, hierarchy } from 'd3-hierarchy';
-import { scaleOrdinal} from 'd3-scale';
 import { SiftView, registerSiftView } from '@redsift/sift-sdk-web';
-import { presentation10 } from '@redsift/d3-rs-theme';
+import { html as treemap } from '@redsift/d3-rs-treemap';
 
 
 export default class SummaryView extends SiftView {
@@ -15,6 +13,10 @@ export default class SummaryView extends SiftView {
 
     // Stores the currently displayed data so view can be reflown during transitions
     this._div = select('.treemap');
+    this._treemap = treemap('pixel-tracker')
+      .appendImage(true)
+      .imageFallbackLink("assets/fa-eye@3x.png")
+      .filter('emboss')
 
 
     // Subscribe to 'calendarupdated' updates from the Controller
@@ -28,44 +30,20 @@ export default class SummaryView extends SiftView {
   }
 
   _updateGraph(data){
+    console.log('updating graph')
     // console.log('updateGraph:', data);
-    let treeMap = treemap()
-    .size([100, 100])
-    .round(true);
 
-    var hr = hierarchy(data)
-      .sum(d => d.count)
+    // let getLabel = d => {
+    //   return d.data.name === 'no-trackers-found' || d.children
+    //   ? null
+    //   : d.data.name + (d.data.count ? ' (' + d.data.count + ')' : '')
+    // };
 
-    treeMap(hr);
+ 
+    let w = this._div.node().offsetWidth;
+    let h = select('#home').node().offsetHeight;
+    this._div.datum(data).call(this._treemap.width(w).height(h));
 
-    let getLabel = d => {
-      return d.data.name === 'no-trackers-found' || d.children
-      ? null
-      : d.data.name + (d.data.count ? ' (' + d.data.count + ')' : '')
-    };
-
-    let scale = scaleOrdinal(presentation10.lighter);
-
-    this._div
-      .selectAll('.node')
-      .data(hr.leaves())
-      .enter().append('div')
-        .attr('class', 'node')
-        .attr('title', getLabel)
-        .style('left', d => d.x0 + '%')
-        .style('top', d => d.y0 + '%')
-        .style('width', d => d.x1 - d.x0 + '%')
-        .style('height', d => d.y1 - d.y0 + '%')
-        .style('font-size', d => (d.x1 < 10 ? '10' : d.x1 < 20 ? '15' : '20' ) + 'px')
-        .style('background', d => d.name === 'no-trackers-found' || d.children ? 'white' : scale(getLabel(d)))
-      .append('div')
-        .attr('class', 'node-child')
-        .style('background-image', d => {
-          return d.name === 'no-trackers-found' || d.children ? null
-            : d.data.id ? `url("https://logo.clearbit.com/${d.data.id}?&size=200")`
-            : `url("assets/fa-eye.png")`;
-        })
-        .style('background-size', d => d.data.id ? 'contain' : 'initial')
   }
 
   onGraphUpdated(g){

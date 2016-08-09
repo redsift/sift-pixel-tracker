@@ -1895,26 +1895,22 @@ class PixelTrackerController extends SiftController {
             let obj = JSON.parse(result.value);
             Object.keys(obj.detail.trackers).forEach(tracker => {
               let name = obj.detail.trackers[tracker].name.toLowerCase();
-              //console.log('tracker=', tracker);
-              //console.log('tracker name=', name);
+              // console.log('tracker=', tracker, name, obj.detail.trackers[tracker].id);
+              // console.log('tracker name=', name);
               let trackerHash = trackers[name];
               if (!trackerHash) {
                 trackerHash = { count: 0 };
                 trackers[name] = trackerHash;
               }
               // console.log('obj.detail.trackers[tracker]', obj.detail.trackers[tracker]);
-              if (typeof obj.detail.trackers[tracker] === 'number') {
-                trackerHash.count += obj.detail.trackers[tracker];
-              } else {
-                if (obj.detail.trackers[tracker].count) {
-                  trackerHash.count += obj.detail.trackers[tracker].count;
-                }
-                if (obj.detail.trackers[tracker].name) {
-                  trackerHash.name = obj.detail.trackers[tracker].name;
-                }
-                if (obj.detail.trackers[tracker].id) {
-                  trackerHash.id = obj.detail.trackers[tracker].id;
-                }
+              if (obj.detail.trackers[tracker].count) {
+                trackerHash.count += obj.detail.trackers[tracker].count;
+              }
+              if (obj.detail.trackers[tracker].name) {
+                trackerHash.name = obj.detail.trackers[tracker].name;
+              }
+              if (obj.detail.trackers[tracker].id) {
+                trackerHash.id = obj.detail.trackers[tracker].id;
               }
             });
           } catch (err) {

@@ -21,7 +21,7 @@ export default class PixelTrackerEmailClientController extends EmailClientContro
 
       ret.value = {
         image: {
-          url: 'public/assets/fa-eye@2x.png'
+          url: 'assets/fa-eye@2x.png'
         },
         subtitle: subtitle
       };

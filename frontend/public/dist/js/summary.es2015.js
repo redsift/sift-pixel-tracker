@@ -524,7 +524,7 @@ function selection_attr(name, value) {
       : (fullname.local ? attrConstantNS : attrConstant)))(fullname, value));
 }
 
-function defaultView(node) {
+function window$1(node) {
   return (node.ownerDocument && node.ownerDocument.defaultView) // node is a Node
       || (node.document && node) // node is a Window
       || node.defaultView; // node is a Document
@@ -557,7 +557,7 @@ function selection_style(name, value, priority) {
             ? styleRemove : typeof value === "function"
             ? styleFunction
             : styleConstant)(name, value, priority == null ? "" : priority))
-      : defaultView(node = this.node())
+      : window$1(node = this.node())
           .getComputedStyle(node, null)
           .getPropertyValue(name);
 }
@@ -770,7 +770,7 @@ function selection_datum(value) {
 }
 
 function dispatchEvent(node, type, params) {
-  var window = defaultView(node),
+  var window = window$1(node),
       event = window.CustomEvent;
 
   if (event) {
@@ -852,589 +852,376 @@ function select(selector) {
       : new Selection([[selector]], root);
 }
 
-function node_each(callback) {
-  var node = this, current, next = [node], children, i, n;
-  do {
-    current = next.reverse(), next = [];
-    while (node = current.pop()) {
-      callback(node), children = node.children;
-      if (children) for (i = 0, n = children.length; i < n; ++i) {
-        next.push(children[i]);
-      }
-    }
-  } while (next.length);
-  return this;
+var noop = {value: function() {}};
+
+function dispatch() {
+  for (var i = 0, n = arguments.length, _ = {}, t; i < n; ++i) {
+    if (!(t = arguments[i] + "") || (t in _)) throw new Error("illegal type: " + t);
+    _[t] = [];
+  }
+  return new Dispatch(_);
 }
 
-function node_eachBefore(callback) {
-  var node = this, nodes = [node], children, i;
-  while (node = nodes.pop()) {
-    callback(node), children = node.children;
-    if (children) for (i = children.length - 1; i >= 0; --i) {
-      nodes.push(children[i]);
-    }
-  }
-  return this;
+function Dispatch(_) {
+  this._ = _;
 }
 
-function node_eachAfter(callback) {
-  var node = this, nodes = [node], next = [], children, i, n;
-  while (node = nodes.pop()) {
-    next.push(node), children = node.children;
-    if (children) for (i = 0, n = children.length; i < n; ++i) {
-      nodes.push(children[i]);
-    }
-  }
-  while (node = next.pop()) {
-    callback(node);
-  }
-  return this;
-}
-
-function node_sum(value) {
-  return this.eachAfter(function(node) {
-    var sum = +value(node.data) || 0,
-        children = node.children,
-        i = children && children.length;
-    while (--i >= 0) sum += children[i].value;
-    node.value = sum;
+function parseTypenames$1(typenames, types) {
+  return typenames.trim().split(/^|\s+/).map(function(t) {
+    var name = "", i = t.indexOf(".");
+    if (i >= 0) name = t.slice(i + 1), t = t.slice(0, i);
+    if (t && !types.hasOwnProperty(t)) throw new Error("unknown type: " + t);
+    return {type: t, name: name};
   });
 }
 
-function node_sort(compare) {
-  return this.eachBefore(function(node) {
-    if (node.children) {
-      node.children.sort(compare);
-    }
-  });
-}
+Dispatch.prototype = dispatch.prototype = {
+  constructor: Dispatch,
+  on: function(typename, callback) {
+    var _ = this._,
+        T = parseTypenames$1(typename + "", _),
+        t,
+        i = -1,
+        n = T.length;
 
-function node_path(end) {
-  var start = this,
-      ancestor = leastCommonAncestor(start, end),
-      nodes = [start];
-  while (start !== ancestor) {
-    start = start.parent;
-    nodes.push(start);
-  }
-  var k = nodes.length;
-  while (end !== ancestor) {
-    nodes.splice(k, 0, end);
-    end = end.parent;
-  }
-  return nodes;
-}
-
-function leastCommonAncestor(a, b) {
-  if (a === b) return a;
-  var aNodes = a.ancestors(),
-      bNodes = b.ancestors(),
-      c = null;
-  a = aNodes.pop();
-  b = bNodes.pop();
-  while (a === b) {
-    c = a;
-    a = aNodes.pop();
-    b = bNodes.pop();
-  }
-  return c;
-}
-
-function node_ancestors() {
-  var node = this, nodes = [node];
-  while (node = node.parent) {
-    nodes.push(node);
-  }
-  return nodes;
-}
-
-function node_descendants() {
-  var nodes = [];
-  this.each(function(node) {
-    nodes.push(node);
-  });
-  return nodes;
-}
-
-function node_leaves() {
-  var leaves = [];
-  this.eachBefore(function(node) {
-    if (!node.children) {
-      leaves.push(node);
-    }
-  });
-  return leaves;
-}
-
-function node_links() {
-  var root = this, links = [];
-  root.each(function(node) {
-    if (node !== root) { // Don’t include the root’s parent, if any.
-      links.push({source: node.parent, target: node});
-    }
-  });
-  return links;
-}
-
-function hierarchy(data, children) {
-  var root = new Node(data),
-      valued = +data.value && (root.value = data.value),
-      node,
-      nodes = [root],
-      child,
-      childs,
-      i,
-      n;
-
-  if (children == null) children = defaultChildren;
-
-  while (node = nodes.pop()) {
-    if (valued) node.value = +node.data.value;
-    if ((childs = children(node.data)) && (n = childs.length)) {
-      node.children = new Array(n);
-      for (i = n - 1; i >= 0; --i) {
-        nodes.push(child = node.children[i] = new Node(childs[i]));
-        child.parent = node;
-        child.depth = node.depth + 1;
-      }
-    }
-  }
-
-  return root.eachBefore(computeHeight);
-}
-
-function node_copy() {
-  return hierarchy(this).eachBefore(copyData);
-}
-
-function defaultChildren(d) {
-  return d.children;
-}
-
-function copyData(node) {
-  node.data = node.data.data;
-}
-
-function computeHeight(node) {
-  var height = 0;
-  do node.height = height;
-  while ((node = node.parent) && (node.height < ++height));
-}
-
-function Node(data) {
-  this.data = data;
-  this.depth =
-  this.height = 0;
-  this.parent = null;
-}
-
-Node.prototype = hierarchy.prototype = {
-  constructor: Node,
-  each: node_each,
-  eachAfter: node_eachAfter,
-  eachBefore: node_eachBefore,
-  sum: node_sum,
-  sort: node_sort,
-  path: node_path,
-  ancestors: node_ancestors,
-  descendants: node_descendants,
-  leaves: node_leaves,
-  links: node_links,
-  copy: node_copy
-};
-
-function required(f) {
-  if (typeof f !== "function") throw new Error;
-  return f;
-}
-
-function constantZero() {
-  return 0;
-}
-
-function constant$1(x) {
-  return function() {
-    return x;
-  };
-}
-
-function roundNode(node) {
-  node.x0 = Math.round(node.x0);
-  node.y0 = Math.round(node.y0);
-  node.x1 = Math.round(node.x1);
-  node.y1 = Math.round(node.y1);
-}
-
-function treemapDice(parent, x0, y0, x1, y1) {
-  var nodes = parent.children,
-      node,
-      i = -1,
-      n = nodes.length,
-      k = parent.value && (x1 - x0) / parent.value;
-
-  while (++i < n) {
-    node = nodes[i], node.y0 = y0, node.y1 = y1;
-    node.x0 = x0, node.x1 = x0 += node.value * k;
-  }
-}
-
-function treemapSlice(parent, x0, y0, x1, y1) {
-  var nodes = parent.children,
-      node,
-      i = -1,
-      n = nodes.length,
-      k = parent.value && (y1 - y0) / parent.value;
-
-  while (++i < n) {
-    node = nodes[i], node.x0 = x0, node.x1 = x1;
-    node.y0 = y0, node.y1 = y0 += node.value * k;
-  }
-}
-
-var phi = (1 + Math.sqrt(5)) / 2;
-
-function squarifyRatio(ratio, parent, x0, y0, x1, y1) {
-  var rows = [],
-      nodes = parent.children,
-      row,
-      nodeValue,
-      i0 = 0,
-      i1,
-      n = nodes.length,
-      dx, dy,
-      value = parent.value,
-      sumValue,
-      minValue,
-      maxValue,
-      newRatio,
-      minRatio,
-      alpha,
-      beta;
-
-  while (i0 < n) {
-    dx = x1 - x0, dy = y1 - y0;
-    minValue = maxValue = sumValue = nodes[i0].value;
-    alpha = Math.max(dy / dx, dx / dy) / (value * ratio);
-    beta = sumValue * sumValue * alpha;
-    minRatio = Math.max(maxValue / beta, beta / minValue);
-
-    // Keep adding nodes while the aspect ratio maintains or improves.
-    for (i1 = i0 + 1; i1 < n; ++i1) {
-      sumValue += nodeValue = nodes[i1].value;
-      if (nodeValue < minValue) minValue = nodeValue;
-      if (nodeValue > maxValue) maxValue = nodeValue;
-      beta = sumValue * sumValue * alpha;
-      newRatio = Math.max(maxValue / beta, beta / minValue);
-      if (newRatio > minRatio) { sumValue -= nodeValue; break; }
-      minRatio = newRatio;
+    // If no callback was specified, return the callback of the given type and name.
+    if (arguments.length < 2) {
+      while (++i < n) if ((t = (typename = T[i]).type) && (t = get$1(_[t], typename.name))) return t;
+      return;
     }
 
-    // Position and record the row orientation.
-    rows.push(row = {value: sumValue, dice: dx < dy, children: nodes.slice(i0, i1)});
-    if (row.dice) treemapDice(row, x0, y0, x1, value ? y0 += dy * sumValue / value : y1);
-    else treemapSlice(row, x0, y0, value ? x0 += dx * sumValue / value : x1, y1);
-    value -= sumValue, i0 = i1;
-  }
-
-  return rows;
-}
-
-var squarify = (function custom(ratio) {
-
-  function squarify(parent, x0, y0, x1, y1) {
-    squarifyRatio(ratio, parent, x0, y0, x1, y1);
-  }
-
-  squarify.ratio = function(x) {
-    return custom((x = +x) > 1 ? x : 1);
-  };
-
-  return squarify;
-})(phi);
-
-function treemap() {
-  var tile = squarify,
-      round = false,
-      dx = 1,
-      dy = 1,
-      paddingStack = [0],
-      paddingInner = constantZero,
-      paddingTop = constantZero,
-      paddingRight = constantZero,
-      paddingBottom = constantZero,
-      paddingLeft = constantZero;
-
-  function treemap(root) {
-    root.x0 =
-    root.y0 = 0;
-    root.x1 = dx;
-    root.y1 = dy;
-    root.eachBefore(positionNode);
-    paddingStack = [0];
-    if (round) root.eachBefore(roundNode);
-    return root;
-  }
-
-  function positionNode(node) {
-    var p = paddingStack[node.depth],
-        x0 = node.x0 + p,
-        y0 = node.y0 + p,
-        x1 = node.x1 - p,
-        y1 = node.y1 - p;
-    if (x1 < x0) x0 = x1 = (x0 + x1) / 2;
-    if (y1 < y0) y0 = y1 = (y0 + y1) / 2;
-    node.x0 = x0;
-    node.y0 = y0;
-    node.x1 = x1;
-    node.y1 = y1;
-    if (node.children) {
-      p = paddingStack[node.depth + 1] = paddingInner(node) / 2;
-      x0 += paddingLeft(node) - p;
-      y0 += paddingTop(node) - p;
-      x1 -= paddingRight(node) - p;
-      y1 -= paddingBottom(node) - p;
-      if (x1 < x0) x0 = x1 = (x0 + x1) / 2;
-      if (y1 < y0) y0 = y1 = (y0 + y1) / 2;
-      tile(node, x0, y0, x1, y1);
+    // If a type was specified, set the callback for the given type and name.
+    // Otherwise, if a null callback was specified, remove callbacks of the given name.
+    if (callback != null && typeof callback !== "function") throw new Error("invalid callback: " + callback);
+    while (++i < n) {
+      if (t = (typename = T[i]).type) _[t] = set$1(_[t], typename.name, callback);
+      else if (callback == null) for (t in _) _[t] = set$1(_[t], typename.name, null);
     }
-  }
 
-  treemap.round = function(x) {
-    return arguments.length ? (round = !!x, treemap) : round;
-  };
-
-  treemap.size = function(x) {
-    return arguments.length ? (dx = +x[0], dy = +x[1], treemap) : [dx, dy];
-  };
-
-  treemap.tile = function(x) {
-    return arguments.length ? (tile = required(x), treemap) : tile;
-  };
-
-  treemap.padding = function(x) {
-    return arguments.length ? treemap.paddingInner(x).paddingOuter(x) : treemap.paddingInner();
-  };
-
-  treemap.paddingInner = function(x) {
-    return arguments.length ? (paddingInner = typeof x === "function" ? x : constant$1(+x), treemap) : paddingInner;
-  };
-
-  treemap.paddingOuter = function(x) {
-    return arguments.length ? treemap.paddingTop(x).paddingRight(x).paddingBottom(x).paddingLeft(x) : treemap.paddingTop();
-  };
-
-  treemap.paddingTop = function(x) {
-    return arguments.length ? (paddingTop = typeof x === "function" ? x : constant$1(+x), treemap) : paddingTop;
-  };
-
-  treemap.paddingRight = function(x) {
-    return arguments.length ? (paddingRight = typeof x === "function" ? x : constant$1(+x), treemap) : paddingRight;
-  };
-
-  treemap.paddingBottom = function(x) {
-    return arguments.length ? (paddingBottom = typeof x === "function" ? x : constant$1(+x), treemap) : paddingBottom;
-  };
-
-  treemap.paddingLeft = function(x) {
-    return arguments.length ? (paddingLeft = typeof x === "function" ? x : constant$1(+x), treemap) : paddingLeft;
-  };
-
-  return treemap;
-}
-
-(function custom(ratio) {
-
-  function resquarify(parent, x0, y0, x1, y1) {
-    if ((rows = parent._squarify) && (rows.ratio === ratio)) {
-      var rows,
-          row,
-          nodes,
-          i,
-          j = -1,
-          n,
-          m = rows.length,
-          value = parent.value;
-
-      while (++j < m) {
-        row = rows[j], nodes = row.children;
-        for (i = row.value = 0, n = nodes.length; i < n; ++i) row.value += nodes[i].value;
-        if (row.dice) treemapDice(row, x0, y0, x1, y0 += (y1 - y0) * row.value / value);
-        else treemapSlice(row, x0, y0, x0 += (x1 - x0) * row.value / value, y1);
-        value -= row.value;
-      }
-    } else {
-      parent._squarify = rows = squarifyRatio(ratio, parent, x0, y0, x1, y1);
-      rows.ratio = ratio;
-    }
-  }
-
-  resquarify.ratio = function(x) {
-    return custom((x = +x) > 1 ? x : 1);
-  };
-
-  return resquarify;
-})(phi);
-
-function ascending$1(a, b) {
-  return a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
-}
-
-function bisector(compare) {
-  if (compare.length === 1) compare = ascendingComparator(compare);
-  return {
-    left: function(a, x, lo, hi) {
-      if (lo == null) lo = 0;
-      if (hi == null) hi = a.length;
-      while (lo < hi) {
-        var mid = lo + hi >>> 1;
-        if (compare(a[mid], x) < 0) lo = mid + 1;
-        else hi = mid;
-      }
-      return lo;
-    },
-    right: function(a, x, lo, hi) {
-      if (lo == null) lo = 0;
-      if (hi == null) hi = a.length;
-      while (lo < hi) {
-        var mid = lo + hi >>> 1;
-        if (compare(a[mid], x) > 0) hi = mid;
-        else lo = mid + 1;
-      }
-      return lo;
-    }
-  };
-}
-
-function ascendingComparator(f) {
-  return function(d, x) {
-    return ascending$1(f(d), x);
-  };
-}
-
-var ascendingBisect = bisector(ascending$1);
-
-var prefix = "$";
-
-function Map() {}
-
-Map.prototype = map$1.prototype = {
-  constructor: Map,
-  has: function(key) {
-    return (prefix + key) in this;
-  },
-  get: function(key) {
-    return this[prefix + key];
-  },
-  set: function(key, value) {
-    this[prefix + key] = value;
     return this;
   },
-  remove: function(key) {
-    var property = prefix + key;
-    return property in this && delete this[property];
+  copy: function() {
+    var copy = {}, _ = this._;
+    for (var t in _) copy[t] = _[t].slice();
+    return new Dispatch(copy);
   },
-  clear: function() {
-    for (var property in this) if (property[0] === prefix) delete this[property];
+  call: function(type, that) {
+    if ((n = arguments.length - 2) > 0) for (var args = new Array(n), i = 0, n, t; i < n; ++i) args[i] = arguments[i + 2];
+    if (!this._.hasOwnProperty(type)) throw new Error("unknown type: " + type);
+    for (t = this._[type], i = 0, n = t.length; i < n; ++i) t[i].value.apply(that, args);
   },
-  keys: function() {
-    var keys = [];
-    for (var property in this) if (property[0] === prefix) keys.push(property.slice(1));
-    return keys;
-  },
-  values: function() {
-    var values = [];
-    for (var property in this) if (property[0] === prefix) values.push(this[property]);
-    return values;
-  },
-  entries: function() {
-    var entries = [];
-    for (var property in this) if (property[0] === prefix) entries.push({key: property.slice(1), value: this[property]});
-    return entries;
-  },
-  size: function() {
-    var size = 0;
-    for (var property in this) if (property[0] === prefix) ++size;
-    return size;
-  },
-  empty: function() {
-    for (var property in this) if (property[0] === prefix) return false;
-    return true;
-  },
-  each: function(f) {
-    for (var property in this) if (property[0] === prefix) f(this[property], property.slice(1), this);
+  apply: function(type, that, args) {
+    if (!this._.hasOwnProperty(type)) throw new Error("unknown type: " + type);
+    for (var t = this._[type], i = 0, n = t.length; i < n; ++i) t[i].value.apply(that, args);
   }
 };
 
-function map$1(object, f) {
-  var map = new Map;
-
-  // Copy constructor.
-  if (object instanceof Map) object.each(function(value, key) { map.set(key, value); });
-
-  // Index array by numeric index or specified key function.
-  else if (Array.isArray(object)) {
-    var i = -1,
-        n = object.length,
-        o;
-
-    if (f == null) while (++i < n) map.set(i, object[i]);
-    else while (++i < n) map.set(f(o = object[i], i, object), o);
+function get$1(type, name) {
+  for (var i = 0, n = type.length, c; i < n; ++i) {
+    if ((c = type[i]).name === name) {
+      return c.value;
+    }
   }
-
-  // Convert object to map.
-  else if (object) for (var key in object) map.set(key, object[key]);
-
-  return map;
 }
 
-var proto = map$1.prototype;
-
-var array$1 = Array.prototype;
-
-var slice$1 = array$1.slice;
-
-var implicit = {name: "implicit"};
-
-function ordinal(range) {
-  var index = map$1(),
-      domain = [],
-      unknown = implicit;
-
-  range = range == null ? [] : slice$1.call(range);
-
-  function scale(d) {
-    var key = d + "", i = index.get(key);
-    if (!i) {
-      if (unknown !== implicit) return unknown;
-      index.set(key, i = domain.push(d));
+function set$1(type, name, callback) {
+  for (var i = 0, n = type.length; i < n; ++i) {
+    if (type[i].name === name) {
+      type[i] = noop, type = type.slice(0, i).concat(type.slice(i + 1));
+      break;
     }
-    return range[(i - 1) % range.length];
+  }
+  if (callback != null) type.push({name: name, value: callback});
+  return type;
+}
+
+var frame = 0;
+var timeout = 0;
+var interval = 0;
+var pokeDelay = 1000;
+var taskHead;
+var taskTail;
+var clockLast = 0;
+var clockNow = 0;
+var clockSkew = 0;
+var clock = typeof performance === "object" && performance.now ? performance : Date;
+var setFrame = typeof requestAnimationFrame === "function"
+        ? (clock === Date ? function(f) { requestAnimationFrame(function() { f(clock.now()); }); } : requestAnimationFrame)
+        : function(f) { setTimeout(f, 17); };
+function now() {
+  return clockNow || (setFrame(clearNow), clockNow = clock.now() + clockSkew);
+}
+
+function clearNow() {
+  clockNow = 0;
+}
+
+function Timer() {
+  this._call =
+  this._time =
+  this._next = null;
+}
+
+Timer.prototype = timer.prototype = {
+  constructor: Timer,
+  restart: function(callback, delay, time) {
+    if (typeof callback !== "function") throw new TypeError("callback is not a function");
+    time = (time == null ? now() : +time) + (delay == null ? 0 : +delay);
+    if (!this._next && taskTail !== this) {
+      if (taskTail) taskTail._next = this;
+      else taskHead = this;
+      taskTail = this;
+    }
+    this._call = callback;
+    this._time = time;
+    sleep();
+  },
+  stop: function() {
+    if (this._call) {
+      this._call = null;
+      this._time = Infinity;
+      sleep();
+    }
+  }
+};
+
+function timer(callback, delay, time) {
+  var t = new Timer;
+  t.restart(callback, delay, time);
+  return t;
+}
+
+function timerFlush() {
+  now(); // Get the current time, if not already set.
+  ++frame; // Pretend we’ve set an alarm, if we haven’t already.
+  var t = taskHead, e;
+  while (t) {
+    if ((e = clockNow - t._time) >= 0) t._call.call(null, e);
+    t = t._next;
+  }
+  --frame;
+}
+
+function wake(time) {
+  clockNow = (clockLast = time || clock.now()) + clockSkew;
+  frame = timeout = 0;
+  try {
+    timerFlush();
+  } finally {
+    frame = 0;
+    nap();
+    clockNow = 0;
+  }
+}
+
+function poke() {
+  var now = clock.now(), delay = now - clockLast;
+  if (delay > pokeDelay) clockSkew -= delay, clockLast = now;
+}
+
+function nap() {
+  var t0, t1 = taskHead, t2, time = Infinity;
+  while (t1) {
+    if (t1._call) {
+      if (time > t1._time) time = t1._time;
+      t0 = t1, t1 = t1._next;
+    } else {
+      t2 = t1._next, t1._next = null;
+      t1 = t0 ? t0._next = t2 : taskHead = t2;
+    }
+  }
+  taskTail = t0;
+  sleep(time);
+}
+
+function sleep(time) {
+  if (frame) return; // Soonest alarm already set, or will be.
+  if (timeout) timeout = clearTimeout(timeout);
+  var delay = time - clockNow;
+  if (delay > 24) {
+    if (time < Infinity) timeout = setTimeout(wake, delay);
+    if (interval) interval = clearInterval(interval);
+  } else {
+    if (!interval) interval = setInterval(poke, pokeDelay);
+    frame = 1, setFrame(wake);
+  }
+}
+
+function timeout$1(callback, delay, time) {
+  var t = new Timer;
+  delay = delay == null ? 0 : +delay;
+  t.restart(function(elapsed) {
+    t.stop();
+    callback(elapsed + delay);
+  }, delay, time);
+  return t;
+}
+
+var emptyOn = dispatch("start", "end", "interrupt");
+var emptyTween = [];
+
+var CREATED = 0;
+var SCHEDULED = 1;
+var STARTING = 2;
+var STARTED = 3;
+var ENDING = 4;
+var ENDED = 5;
+
+function schedule(node, name, id, index, group, timing) {
+  var schedules = node.__transition;
+  if (!schedules) node.__transition = {};
+  else if (id in schedules) return;
+  create(node, id, {
+    name: name,
+    index: index, // For context during callback.
+    group: group, // For context during callback.
+    on: emptyOn,
+    tween: emptyTween,
+    time: timing.time,
+    delay: timing.delay,
+    duration: timing.duration,
+    ease: timing.ease,
+    timer: null,
+    state: CREATED
+  });
+}
+
+function init(node, id) {
+  var schedule = node.__transition;
+  if (!schedule || !(schedule = schedule[id]) || schedule.state > CREATED) throw new Error("too late");
+  return schedule;
+}
+
+function set(node, id) {
+  var schedule = node.__transition;
+  if (!schedule || !(schedule = schedule[id]) || schedule.state > STARTING) throw new Error("too late");
+  return schedule;
+}
+
+function get(node, id) {
+  var schedule = node.__transition;
+  if (!schedule || !(schedule = schedule[id])) throw new Error("too late");
+  return schedule;
+}
+
+function create(node, id, self) {
+  var schedules = node.__transition,
+      tween;
+
+  // Initialize the self timer when the transition is created.
+  // Note the actual delay is not known until the first callback!
+  schedules[id] = self;
+  self.timer = timer(schedule, 0, self.time);
+
+  // If the delay is greater than this first sleep, sleep some more;
+  // otherwise, start immediately.
+  function schedule(elapsed) {
+    self.state = SCHEDULED;
+    if (self.delay <= elapsed) start(elapsed - self.delay);
+    else self.timer.restart(start, self.delay, self.time);
   }
 
-  scale.domain = function(_) {
-    if (!arguments.length) return domain.slice();
-    domain = [], index = map$1();
-    var i = -1, n = _.length, d, key;
-    while (++i < n) if (!index.has(key = (d = _[i]) + "")) index.set(key, domain.push(d));
-    return scale;
-  };
+  function start(elapsed) {
+    var i, j, n, o;
 
-  scale.range = function(_) {
-    return arguments.length ? (range = slice$1.call(_), scale) : range.slice();
-  };
+    for (i in schedules) {
+      o = schedules[i];
+      if (o.name !== self.name) continue;
 
-  scale.unknown = function(_) {
-    return arguments.length ? (unknown = _, scale) : unknown;
-  };
+      // Interrupt the active transition, if any.
+      // Dispatch the interrupt event.
+      if (o.state === STARTED) {
+        o.state = ENDED;
+        o.timer.stop();
+        o.on.call("interrupt", node, node.__data__, o.index, o.group);
+        delete schedules[i];
+      }
 
-  scale.copy = function() {
-    return ordinal()
-        .domain(domain)
-        .range(range)
-        .unknown(unknown);
-  };
+      // Cancel any pre-empted transitions. No interrupt event is dispatched
+      // because the cancelled transitions never started. Note that this also
+      // removes this transition from the pending list!
+      else if (+i < id) {
+        o.state = ENDED;
+        o.timer.stop();
+        delete schedules[i];
+      }
+    }
 
-  return scale;
+    // Defer the first tick to end of the current frame; see mbostock/d3#1576.
+    // Note the transition may be canceled after start and before the first tick!
+    // Note this must be scheduled before the start event; see d3/d3-transition#16!
+    // Assuming this is successful, subsequent callbacks go straight to tick.
+    timeout$1(function() {
+      if (self.state === STARTED) {
+        self.timer.restart(tick, self.delay, self.time);
+        tick(elapsed);
+      }
+    });
+
+    // Dispatch the start event.
+    // Note this must be done before the tween are initialized.
+    self.state = STARTING;
+    self.on.call("start", node, node.__data__, self.index, self.group);
+    if (self.state !== STARTING) return; // interrupted
+    self.state = STARTED;
+
+    // Initialize the tween, deleting null tween.
+    tween = new Array(n = self.tween.length);
+    for (i = 0, j = -1; i < n; ++i) {
+      if (o = self.tween[i].value.call(node, node.__data__, self.index, self.group)) {
+        tween[++j] = o;
+      }
+    }
+    tween.length = j + 1;
+  }
+
+  function tick(elapsed) {
+    var t = elapsed < self.duration ? self.ease.call(null, elapsed / self.duration) : (self.state = ENDING, 1),
+        i = -1,
+        n = tween.length;
+
+    while (++i < n) {
+      tween[i].call(null, t);
+    }
+
+    // Dispatch the end event.
+    if (self.state === ENDING) {
+      self.state = ENDED;
+      self.timer.stop();
+      self.on.call("end", node, node.__data__, self.index, self.group);
+      for (i in schedules) if (+i !== id) return void delete schedules[id];
+      delete node.__transition;
+    }
+  }
+}
+
+function interrupt(node, name) {
+  var schedules = node.__transition,
+      schedule,
+      active,
+      empty = true,
+      i;
+
+  if (!schedules) return;
+
+  name = name == null ? null : name + "";
+
+  for (i in schedules) {
+    if ((schedule = schedules[i]).name !== name) { empty = false; continue; }
+    active = schedule.state === STARTED;
+    schedule.state = ENDED;
+    schedule.timer.stop();
+    if (active) schedule.on.call("interrupt", node, node.__data__, schedule.index, schedule.group);
+    delete schedules[i];
+  }
+
+  if (empty) delete node.__transition;
+}
+
+function selection_interrupt(name) {
+  return this.each(function() {
+    interrupt(this, name);
+  });
 }
 
 function define$1(constructor, factory, prototype) {
@@ -1937,13 +1724,13 @@ define$1(Cubehelix, cubehelix, extend(Color, {
   }
 }));
 
-function constant$3(x) {
+function constant$1(x) {
   return function() {
     return x;
   };
 }
 
-function linear$1(a, d) {
+function linear(a, d) {
   return function(t) {
     return a + t * d;
   };
@@ -1957,21 +1744,21 @@ function exponential(a, b, y) {
 
 function hue(a, b) {
   var d = b - a;
-  return d ? linear$1(a, d > 180 || d < -180 ? d - 360 * Math.round(d / 360) : d) : constant$3(isNaN(a) ? b : a);
+  return d ? linear(a, d > 180 || d < -180 ? d - 360 * Math.round(d / 360) : d) : constant$1(isNaN(a) ? b : a);
 }
 
 function gamma(y) {
   return (y = +y) === 1 ? nogamma : function(a, b) {
-    return b - a ? exponential(a, b, y) : constant$3(isNaN(a) ? b : a);
+    return b - a ? exponential(a, b, y) : constant$1(isNaN(a) ? b : a);
   };
 }
 
 function nogamma(a, b) {
   var d = b - a;
-  return d ? linear$1(a, d) : constant$3(isNaN(a) ? b : a);
+  return d ? linear(a, d) : constant$1(isNaN(a) ? b : a);
 }
 
-(function rgbGamma(y) {
+var interpolateRgb = (function rgbGamma(y) {
   var color = gamma(y);
 
   function rgb(start, end) {
@@ -1992,6 +1779,185 @@ function nogamma(a, b) {
 
   return rgb;
 })(1);
+
+function reinterpolate(a, b) {
+  return a = +a, b -= a, function(t) {
+    return a + b * t;
+  };
+}
+
+var reA = /[-+]?(?:\d+\.?\d*|\.?\d+)(?:[eE][-+]?\d+)?/g;
+var reB = new RegExp(reA.source, "g");
+function zero(b) {
+  return function() {
+    return b;
+  };
+}
+
+function one(b) {
+  return function(t) {
+    return b(t) + "";
+  };
+}
+
+function interpolateString(a, b) {
+  var bi = reA.lastIndex = reB.lastIndex = 0, // scan index for next number in b
+      am, // current match in a
+      bm, // current match in b
+      bs, // string preceding current number in b, if any
+      i = -1, // index in s
+      s = [], // string constants and placeholders
+      q = []; // number interpolators
+
+  // Coerce inputs to strings.
+  a = a + "", b = b + "";
+
+  // Interpolate pairs of numbers in a & b.
+  while ((am = reA.exec(a))
+      && (bm = reB.exec(b))) {
+    if ((bs = bm.index) > bi) { // a string precedes the next number in b
+      bs = b.slice(bi, bs);
+      if (s[i]) s[i] += bs; // coalesce with previous string
+      else s[++i] = bs;
+    }
+    if ((am = am[0]) === (bm = bm[0])) { // numbers in a & b match
+      if (s[i]) s[i] += bm; // coalesce with previous string
+      else s[++i] = bm;
+    } else { // interpolate non-matching numbers
+      s[++i] = null;
+      q.push({i: i, x: reinterpolate(am, bm)});
+    }
+    bi = reB.lastIndex;
+  }
+
+  // Add remains of b.
+  if (bi < b.length) {
+    bs = b.slice(bi);
+    if (s[i]) s[i] += bs; // coalesce with previous string
+    else s[++i] = bs;
+  }
+
+  // Special optimization for only a single match.
+  // Otherwise, interpolate each of the numbers and rejoin the string.
+  return s.length < 2 ? (q[0]
+      ? one(q[0].x)
+      : zero(b))
+      : (b = q.length, function(t) {
+          for (var i = 0, o; i < b; ++i) s[(o = q[i]).i] = o.x(t);
+          return s.join("");
+        });
+}
+
+var degrees = 180 / Math.PI;
+
+var identity = {
+  translateX: 0,
+  translateY: 0,
+  rotate: 0,
+  skewX: 0,
+  scaleX: 1,
+  scaleY: 1
+};
+
+function decompose(a, b, c, d, e, f) {
+  var scaleX, scaleY, skewX;
+  if (scaleX = Math.sqrt(a * a + b * b)) a /= scaleX, b /= scaleX;
+  if (skewX = a * c + b * d) c -= a * skewX, d -= b * skewX;
+  if (scaleY = Math.sqrt(c * c + d * d)) c /= scaleY, d /= scaleY, skewX /= scaleY;
+  if (a * d < b * c) a = -a, b = -b, skewX = -skewX, scaleX = -scaleX;
+  return {
+    translateX: e,
+    translateY: f,
+    rotate: Math.atan2(b, a) * degrees,
+    skewX: Math.atan(skewX) * degrees,
+    scaleX: scaleX,
+    scaleY: scaleY
+  };
+}
+
+var cssNode;
+var cssRoot;
+var cssView;
+var svgNode;
+function parseCss(value) {
+  if (value === "none") return identity;
+  if (!cssNode) cssNode = document.createElement("DIV"), cssRoot = document.documentElement, cssView = document.defaultView;
+  cssNode.style.transform = value;
+  value = cssView.getComputedStyle(cssRoot.appendChild(cssNode), null).getPropertyValue("transform");
+  cssRoot.removeChild(cssNode);
+  value = value.slice(7, -1).split(",");
+  return decompose(+value[0], +value[1], +value[2], +value[3], +value[4], +value[5]);
+}
+
+function parseSvg(value) {
+  if (value == null) return identity;
+  if (!svgNode) svgNode = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  svgNode.setAttribute("transform", value);
+  if (!(value = svgNode.transform.baseVal.consolidate())) return identity;
+  value = value.matrix;
+  return decompose(value.a, value.b, value.c, value.d, value.e, value.f);
+}
+
+function interpolateTransform(parse, pxComma, pxParen, degParen) {
+
+  function pop(s) {
+    return s.length ? s.pop() + " " : "";
+  }
+
+  function translate(xa, ya, xb, yb, s, q) {
+    if (xa !== xb || ya !== yb) {
+      var i = s.push("translate(", null, pxComma, null, pxParen);
+      q.push({i: i - 4, x: reinterpolate(xa, xb)}, {i: i - 2, x: reinterpolate(ya, yb)});
+    } else if (xb || yb) {
+      s.push("translate(" + xb + pxComma + yb + pxParen);
+    }
+  }
+
+  function rotate(a, b, s, q) {
+    if (a !== b) {
+      if (a - b > 180) b += 360; else if (b - a > 180) a += 360; // shortest path
+      q.push({i: s.push(pop(s) + "rotate(", null, degParen) - 2, x: reinterpolate(a, b)});
+    } else if (b) {
+      s.push(pop(s) + "rotate(" + b + degParen);
+    }
+  }
+
+  function skewX(a, b, s, q) {
+    if (a !== b) {
+      q.push({i: s.push(pop(s) + "skewX(", null, degParen) - 2, x: reinterpolate(a, b)});
+    } else if (b) {
+      s.push(pop(s) + "skewX(" + b + degParen);
+    }
+  }
+
+  function scale(xa, ya, xb, yb, s, q) {
+    if (xa !== xb || ya !== yb) {
+      var i = s.push(pop(s) + "scale(", null, ",", null, ")");
+      q.push({i: i - 4, x: reinterpolate(xa, xb)}, {i: i - 2, x: reinterpolate(ya, yb)});
+    } else if (xb !== 1 || yb !== 1) {
+      s.push(pop(s) + "scale(" + xb + "," + yb + ")");
+    }
+  }
+
+  return function(a, b) {
+    var s = [], // string constants and placeholders
+        q = []; // number interpolators
+    a = parse(a), b = parse(b);
+    translate(a.translateX, a.translateY, b.translateX, b.translateY, s, q);
+    rotate(a.rotate, b.rotate, s, q);
+    skewX(a.skewX, b.skewX, s, q);
+    scale(a.scaleX, a.scaleY, b.scaleX, b.scaleY, s, q);
+    a = b = null; // gc
+    return function(t) {
+      var i = -1, n = q.length, o;
+      while (++i < n) s[(o = q[i]).i] = o.x(t);
+      return s.join("");
+    };
+  };
+}
+
+var interpolateTransform$1 = interpolateTransform(parseCss, "px, ", "px)", "deg)");
+var interpolateTransformSvg = interpolateTransform(parseSvg, ", ", ")", ")");
 
 function cubehelix$1(hue) {
   return (function cubehelixGamma(y) {
@@ -2020,6 +1986,2454 @@ function cubehelix$1(hue) {
 cubehelix$1(hue);
 var interpolateCubehelixLong = cubehelix$1(nogamma);
 
+function tweenRemove(id, name) {
+  var tween0, tween1;
+  return function() {
+    var schedule = set(this, id),
+        tween = schedule.tween;
+
+    // If this node shared tween with the previous node,
+    // just assign the updated shared tween and we’re done!
+    // Otherwise, copy-on-write.
+    if (tween !== tween0) {
+      tween1 = tween0 = tween;
+      for (var i = 0, n = tween1.length; i < n; ++i) {
+        if (tween1[i].name === name) {
+          tween1 = tween1.slice();
+          tween1.splice(i, 1);
+          break;
+        }
+      }
+    }
+
+    schedule.tween = tween1;
+  };
+}
+
+function tweenFunction(id, name, value) {
+  var tween0, tween1;
+  if (typeof value !== "function") throw new Error;
+  return function() {
+    var schedule = set(this, id),
+        tween = schedule.tween;
+
+    // If this node shared tween with the previous node,
+    // just assign the updated shared tween and we’re done!
+    // Otherwise, copy-on-write.
+    if (tween !== tween0) {
+      tween1 = (tween0 = tween).slice();
+      for (var t = {name: name, value: value}, i = 0, n = tween1.length; i < n; ++i) {
+        if (tween1[i].name === name) {
+          tween1[i] = t;
+          break;
+        }
+      }
+      if (i === n) tween1.push(t);
+    }
+
+    schedule.tween = tween1;
+  };
+}
+
+function transition_tween(name, value) {
+  var id = this._id;
+
+  name += "";
+
+  if (arguments.length < 2) {
+    var tween = get(this.node(), id).tween;
+    for (var i = 0, n = tween.length, t; i < n; ++i) {
+      if ((t = tween[i]).name === name) {
+        return t.value;
+      }
+    }
+    return null;
+  }
+
+  return this.each((value == null ? tweenRemove : tweenFunction)(id, name, value));
+}
+
+function tweenValue(transition, name, value) {
+  var id = transition._id;
+
+  transition.each(function() {
+    var schedule = set(this, id);
+    (schedule.value || (schedule.value = {}))[name] = value.apply(this, arguments);
+  });
+
+  return function(node) {
+    return get(node, id).value[name];
+  };
+}
+
+function interpolate(a, b) {
+  var c;
+  return (typeof b === "number" ? reinterpolate
+      : b instanceof color ? interpolateRgb
+      : (c = color(b)) ? (b = c, interpolateRgb)
+      : interpolateString)(a, b);
+}
+
+function attrRemove$1(name) {
+  return function() {
+    this.removeAttribute(name);
+  };
+}
+
+function attrRemoveNS$1(fullname) {
+  return function() {
+    this.removeAttributeNS(fullname.space, fullname.local);
+  };
+}
+
+function attrConstant$1(name, interpolate, value1) {
+  var value00,
+      interpolate0;
+  return function() {
+    var value0 = this.getAttribute(name);
+    return value0 === value1 ? null
+        : value0 === value00 ? interpolate0
+        : interpolate0 = interpolate(value00 = value0, value1);
+  };
+}
+
+function attrConstantNS$1(fullname, interpolate, value1) {
+  var value00,
+      interpolate0;
+  return function() {
+    var value0 = this.getAttributeNS(fullname.space, fullname.local);
+    return value0 === value1 ? null
+        : value0 === value00 ? interpolate0
+        : interpolate0 = interpolate(value00 = value0, value1);
+  };
+}
+
+function attrFunction$1(name, interpolate, value) {
+  var value00,
+      value10,
+      interpolate0;
+  return function() {
+    var value0, value1 = value(this);
+    if (value1 == null) return void this.removeAttribute(name);
+    value0 = this.getAttribute(name);
+    return value0 === value1 ? null
+        : value0 === value00 && value1 === value10 ? interpolate0
+        : interpolate0 = interpolate(value00 = value0, value10 = value1);
+  };
+}
+
+function attrFunctionNS$1(fullname, interpolate, value) {
+  var value00,
+      value10,
+      interpolate0;
+  return function() {
+    var value0, value1 = value(this);
+    if (value1 == null) return void this.removeAttributeNS(fullname.space, fullname.local);
+    value0 = this.getAttributeNS(fullname.space, fullname.local);
+    return value0 === value1 ? null
+        : value0 === value00 && value1 === value10 ? interpolate0
+        : interpolate0 = interpolate(value00 = value0, value10 = value1);
+  };
+}
+
+function transition_attr(name, value) {
+  var fullname = namespace(name), i = fullname === "transform" ? interpolateTransformSvg : interpolate;
+  return this.attrTween(name, typeof value === "function"
+      ? (fullname.local ? attrFunctionNS$1 : attrFunction$1)(fullname, i, tweenValue(this, "attr." + name, value))
+      : value == null ? (fullname.local ? attrRemoveNS$1 : attrRemove$1)(fullname)
+      : (fullname.local ? attrConstantNS$1 : attrConstant$1)(fullname, i, value));
+}
+
+function attrTweenNS(fullname, value) {
+  function tween() {
+    var node = this, i = value.apply(node, arguments);
+    return i && function(t) {
+      node.setAttributeNS(fullname.space, fullname.local, i(t));
+    };
+  }
+  tween._value = value;
+  return tween;
+}
+
+function attrTween(name, value) {
+  function tween() {
+    var node = this, i = value.apply(node, arguments);
+    return i && function(t) {
+      node.setAttribute(name, i(t));
+    };
+  }
+  tween._value = value;
+  return tween;
+}
+
+function transition_attrTween(name, value) {
+  var key = "attr." + name;
+  if (arguments.length < 2) return (key = this.tween(key)) && key._value;
+  if (value == null) return this.tween(key, null);
+  if (typeof value !== "function") throw new Error;
+  var fullname = namespace(name);
+  return this.tween(key, (fullname.local ? attrTweenNS : attrTween)(fullname, value));
+}
+
+function delayFunction(id, value) {
+  return function() {
+    init(this, id).delay = +value.apply(this, arguments);
+  };
+}
+
+function delayConstant(id, value) {
+  return value = +value, function() {
+    init(this, id).delay = value;
+  };
+}
+
+function transition_delay(value) {
+  var id = this._id;
+
+  return arguments.length
+      ? this.each((typeof value === "function"
+          ? delayFunction
+          : delayConstant)(id, value))
+      : get(this.node(), id).delay;
+}
+
+function durationFunction(id, value) {
+  return function() {
+    set(this, id).duration = +value.apply(this, arguments);
+  };
+}
+
+function durationConstant(id, value) {
+  return value = +value, function() {
+    set(this, id).duration = value;
+  };
+}
+
+function transition_duration(value) {
+  var id = this._id;
+
+  return arguments.length
+      ? this.each((typeof value === "function"
+          ? durationFunction
+          : durationConstant)(id, value))
+      : get(this.node(), id).duration;
+}
+
+function easeConstant(id, value) {
+  if (typeof value !== "function") throw new Error;
+  return function() {
+    set(this, id).ease = value;
+  };
+}
+
+function transition_ease(value) {
+  var id = this._id;
+
+  return arguments.length
+      ? this.each(easeConstant(id, value))
+      : get(this.node(), id).ease;
+}
+
+function transition_filter(match) {
+  if (typeof match !== "function") match = matcher$1(match);
+
+  for (var groups = this._groups, m = groups.length, subgroups = new Array(m), j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, subgroup = subgroups[j] = [], node, i = 0; i < n; ++i) {
+      if ((node = group[i]) && match.call(node, node.__data__, i, group)) {
+        subgroup.push(node);
+      }
+    }
+  }
+
+  return new Transition(subgroups, this._parents, this._name, this._id);
+}
+
+function transition_merge(transition) {
+  if (transition._id !== this._id) throw new Error;
+
+  for (var groups0 = this._groups, groups1 = transition._groups, m0 = groups0.length, m1 = groups1.length, m = Math.min(m0, m1), merges = new Array(m0), j = 0; j < m; ++j) {
+    for (var group0 = groups0[j], group1 = groups1[j], n = group0.length, merge = merges[j] = new Array(n), node, i = 0; i < n; ++i) {
+      if (node = group0[i] || group1[i]) {
+        merge[i] = node;
+      }
+    }
+  }
+
+  for (; j < m0; ++j) {
+    merges[j] = groups0[j];
+  }
+
+  return new Transition(merges, this._parents, this._name, this._id);
+}
+
+function start(name) {
+  return (name + "").trim().split(/^|\s+/).every(function(t) {
+    var i = t.indexOf(".");
+    if (i >= 0) t = t.slice(0, i);
+    return !t || t === "start";
+  });
+}
+
+function onFunction(id, name, listener) {
+  var on0, on1, sit = start(name) ? init : set;
+  return function() {
+    var schedule = sit(this, id),
+        on = schedule.on;
+
+    // If this node shared a dispatch with the previous node,
+    // just assign the updated shared dispatch and we’re done!
+    // Otherwise, copy-on-write.
+    if (on !== on0) (on1 = (on0 = on).copy()).on(name, listener);
+
+    schedule.on = on1;
+  };
+}
+
+function transition_on(name, listener) {
+  var id = this._id;
+
+  return arguments.length < 2
+      ? get(this.node(), id).on.on(name)
+      : this.each(onFunction(id, name, listener));
+}
+
+function removeFunction(id) {
+  return function() {
+    var parent = this.parentNode;
+    for (var i in this.__transition) if (+i !== id) return;
+    if (parent) parent.removeChild(this);
+  };
+}
+
+function transition_remove() {
+  return this.on("end.remove", removeFunction(this._id));
+}
+
+function transition_select(select) {
+  var name = this._name,
+      id = this._id;
+
+  if (typeof select !== "function") select = selector(select);
+
+  for (var groups = this._groups, m = groups.length, subgroups = new Array(m), j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, subgroup = subgroups[j] = new Array(n), node, subnode, i = 0; i < n; ++i) {
+      if ((node = group[i]) && (subnode = select.call(node, node.__data__, i, group))) {
+        if ("__data__" in node) subnode.__data__ = node.__data__;
+        subgroup[i] = subnode;
+        schedule(subgroup[i], name, id, i, subgroup, get(node, id));
+      }
+    }
+  }
+
+  return new Transition(subgroups, this._parents, name, id);
+}
+
+function transition_selectAll(select) {
+  var name = this._name,
+      id = this._id;
+
+  if (typeof select !== "function") select = selectorAll(select);
+
+  for (var groups = this._groups, m = groups.length, subgroups = [], parents = [], j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, node, i = 0; i < n; ++i) {
+      if (node = group[i]) {
+        for (var children = select.call(node, node.__data__, i, group), child, inherit = get(node, id), k = 0, l = children.length; k < l; ++k) {
+          if (child = children[k]) {
+            schedule(child, name, id, k, children, inherit);
+          }
+        }
+        subgroups.push(children);
+        parents.push(node);
+      }
+    }
+  }
+
+  return new Transition(subgroups, parents, name, id);
+}
+
+var Selection$1 = selection.prototype.constructor;
+
+function transition_selection() {
+  return new Selection$1(this._groups, this._parents);
+}
+
+function styleRemove$1(name, interpolate) {
+  var value00,
+      value10,
+      interpolate0;
+  return function() {
+    var style = window$1(this).getComputedStyle(this, null),
+        value0 = style.getPropertyValue(name),
+        value1 = (this.style.removeProperty(name), style.getPropertyValue(name));
+    return value0 === value1 ? null
+        : value0 === value00 && value1 === value10 ? interpolate0
+        : interpolate0 = interpolate(value00 = value0, value10 = value1);
+  };
+}
+
+function styleRemoveEnd(name) {
+  return function() {
+    this.style.removeProperty(name);
+  };
+}
+
+function styleConstant$1(name, interpolate, value1) {
+  var value00,
+      interpolate0;
+  return function() {
+    var value0 = window$1(this).getComputedStyle(this, null).getPropertyValue(name);
+    return value0 === value1 ? null
+        : value0 === value00 ? interpolate0
+        : interpolate0 = interpolate(value00 = value0, value1);
+  };
+}
+
+function styleFunction$1(name, interpolate, value) {
+  var value00,
+      value10,
+      interpolate0;
+  return function() {
+    var style = window$1(this).getComputedStyle(this, null),
+        value0 = style.getPropertyValue(name),
+        value1 = value(this);
+    if (value1 == null) value1 = (this.style.removeProperty(name), style.getPropertyValue(name));
+    return value0 === value1 ? null
+        : value0 === value00 && value1 === value10 ? interpolate0
+        : interpolate0 = interpolate(value00 = value0, value10 = value1);
+  };
+}
+
+function transition_style(name, value, priority) {
+  var i = (name += "") === "transform" ? interpolateTransform$1 : interpolate;
+  return value == null ? this
+          .styleTween(name, styleRemove$1(name, i))
+          .on("end.style." + name, styleRemoveEnd(name))
+      : this.styleTween(name, typeof value === "function"
+          ? styleFunction$1(name, i, tweenValue(this, "style." + name, value))
+          : styleConstant$1(name, i, value), priority);
+}
+
+function styleTween(name, value, priority) {
+  function tween() {
+    var node = this, i = value.apply(node, arguments);
+    return i && function(t) {
+      node.style.setProperty(name, i(t), priority);
+    };
+  }
+  tween._value = value;
+  return tween;
+}
+
+function transition_styleTween(name, value, priority) {
+  var key = "style." + (name += "");
+  if (arguments.length < 2) return (key = this.tween(key)) && key._value;
+  if (value == null) return this.tween(key, null);
+  if (typeof value !== "function") throw new Error;
+  return this.tween(key, styleTween(name, value, priority == null ? "" : priority));
+}
+
+function textConstant$1(value) {
+  return function() {
+    this.textContent = value;
+  };
+}
+
+function textFunction$1(value) {
+  return function() {
+    var value1 = value(this);
+    this.textContent = value1 == null ? "" : value1;
+  };
+}
+
+function transition_text(value) {
+  return this.tween("text", typeof value === "function"
+      ? textFunction$1(tweenValue(this, "text", value))
+      : textConstant$1(value == null ? "" : value + ""));
+}
+
+function transition_transition() {
+  var name = this._name,
+      id0 = this._id,
+      id1 = newId();
+
+  for (var groups = this._groups, m = groups.length, j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, node, i = 0; i < n; ++i) {
+      if (node = group[i]) {
+        var inherit = get(node, id0);
+        schedule(node, name, id1, i, group, {
+          time: inherit.time + inherit.delay + inherit.duration,
+          delay: 0,
+          duration: inherit.duration,
+          ease: inherit.ease
+        });
+      }
+    }
+  }
+
+  return new Transition(groups, this._parents, name, id1);
+}
+
+var id = 0;
+
+function Transition(groups, parents, name, id) {
+  this._groups = groups;
+  this._parents = parents;
+  this._name = name;
+  this._id = id;
+}
+
+function transition(name) {
+  return selection().transition(name);
+}
+
+function newId() {
+  return ++id;
+}
+
+var selection_prototype = selection.prototype;
+
+Transition.prototype = transition.prototype = {
+  constructor: Transition,
+  select: transition_select,
+  selectAll: transition_selectAll,
+  filter: transition_filter,
+  merge: transition_merge,
+  selection: transition_selection,
+  transition: transition_transition,
+  call: selection_prototype.call,
+  nodes: selection_prototype.nodes,
+  node: selection_prototype.node,
+  size: selection_prototype.size,
+  empty: selection_prototype.empty,
+  each: selection_prototype.each,
+  on: transition_on,
+  attr: transition_attr,
+  attrTween: transition_attrTween,
+  style: transition_style,
+  styleTween: transition_styleTween,
+  text: transition_text,
+  remove: transition_remove,
+  tween: transition_tween,
+  delay: transition_delay,
+  duration: transition_duration,
+  ease: transition_ease
+};
+
+function cubicInOut(t) {
+  return ((t *= 2) <= 1 ? t * t * t : (t -= 2) * t * t + 2) / 2;
+}
+
+var exponent = 3;
+
+var polyIn = (function custom(e) {
+  e = +e;
+
+  function polyIn(t) {
+    return Math.pow(t, e);
+  }
+
+  polyIn.exponent = custom;
+
+  return polyIn;
+})(exponent);
+
+var polyOut = (function custom(e) {
+  e = +e;
+
+  function polyOut(t) {
+    return 1 - Math.pow(1 - t, e);
+  }
+
+  polyOut.exponent = custom;
+
+  return polyOut;
+})(exponent);
+
+var polyInOut = (function custom(e) {
+  e = +e;
+
+  function polyInOut(t) {
+    return ((t *= 2) <= 1 ? Math.pow(t, e) : 2 - Math.pow(2 - t, e)) / 2;
+  }
+
+  polyInOut.exponent = custom;
+
+  return polyInOut;
+})(exponent);
+
+var overshoot = 1.70158;
+
+var backIn = (function custom(s) {
+  s = +s;
+
+  function backIn(t) {
+    return t * t * ((s + 1) * t - s);
+  }
+
+  backIn.overshoot = custom;
+
+  return backIn;
+})(overshoot);
+
+var backOut = (function custom(s) {
+  s = +s;
+
+  function backOut(t) {
+    return --t * t * ((s + 1) * t + s) + 1;
+  }
+
+  backOut.overshoot = custom;
+
+  return backOut;
+})(overshoot);
+
+var backInOut = (function custom(s) {
+  s = +s;
+
+  function backInOut(t) {
+    return ((t *= 2) < 1 ? t * t * ((s + 1) * t - s) : (t -= 2) * t * ((s + 1) * t + s) + 2) / 2;
+  }
+
+  backInOut.overshoot = custom;
+
+  return backInOut;
+})(overshoot);
+
+var tau = 2 * Math.PI;
+var amplitude = 1;
+var period = 0.3;
+var elasticIn = (function custom(a, p) {
+  var s = Math.asin(1 / (a = Math.max(1, a))) * (p /= tau);
+
+  function elasticIn(t) {
+    return a * Math.pow(2, 10 * --t) * Math.sin((s - t) / p);
+  }
+
+  elasticIn.amplitude = function(a) { return custom(a, p * tau); };
+  elasticIn.period = function(p) { return custom(a, p); };
+
+  return elasticIn;
+})(amplitude, period);
+
+var elasticOut = (function custom(a, p) {
+  var s = Math.asin(1 / (a = Math.max(1, a))) * (p /= tau);
+
+  function elasticOut(t) {
+    return 1 - a * Math.pow(2, -10 * (t = +t)) * Math.sin((t + s) / p);
+  }
+
+  elasticOut.amplitude = function(a) { return custom(a, p * tau); };
+  elasticOut.period = function(p) { return custom(a, p); };
+
+  return elasticOut;
+})(amplitude, period);
+
+var elasticInOut = (function custom(a, p) {
+  var s = Math.asin(1 / (a = Math.max(1, a))) * (p /= tau);
+
+  function elasticInOut(t) {
+    return ((t = t * 2 - 1) < 0
+        ? a * Math.pow(2, 10 * t) * Math.sin((s - t) / p)
+        : 2 - a * Math.pow(2, -10 * t) * Math.sin((s + t) / p)) / 2;
+  }
+
+  elasticInOut.amplitude = function(a) { return custom(a, p * tau); };
+  elasticInOut.period = function(p) { return custom(a, p); };
+
+  return elasticInOut;
+})(amplitude, period);
+
+var defaultTiming = {
+  time: null, // Set on use.
+  delay: 0,
+  duration: 250,
+  ease: cubicInOut
+};
+
+function inherit(node, id) {
+  var timing;
+  while (!(timing = node.__transition) || !(timing = timing[id])) {
+    if (!(node = node.parentNode)) {
+      return defaultTiming.time = now(), defaultTiming;
+    }
+  }
+  return timing;
+}
+
+function selection_transition(name) {
+  var id,
+      timing;
+
+  if (name instanceof Transition) {
+    id = name._id, name = name._name;
+  } else {
+    id = newId(), (timing = defaultTiming).time = now(), name = name == null ? null : name + "";
+  }
+
+  for (var groups = this._groups, m = groups.length, j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, node, i = 0; i < n; ++i) {
+      if (node = group[i]) {
+        schedule(node, name, id, i, group, timing || inherit(node, id));
+      }
+    }
+  }
+
+  return new Transition(groups, this._parents, name, id);
+}
+
+selection.prototype.interrupt = selection_interrupt;
+selection.prototype.transition = selection_transition;
+
+/**
+ * Observable pattern implementation.
+ * Supports topics as String or an Array.
+ */
+class Observable {
+  constructor() {
+    this._observers = [];
+  }
+
+  subscribe(topic, observer) {
+    this._op('_sub', topic, observer);
+  }
+
+  unsubscribe(topic, observer) {
+    this._op('_unsub', topic, observer);
+  }
+
+  unsubscribeAll(topic) {
+    if (!this._observers[topic]) {
+      return;
+    }
+    delete this._observers[topic];
+  }
+
+  publish(topic, message) {
+    this._op('_pub', topic, message);
+  }
+
+  /**
+   * Internal methods
+   */
+  _op(op, topic, value) {
+    if (Array.isArray(topic)) {
+      topic.forEach((t) => {
+        this[op](t, value);
+      });
+    }
+    else {
+      this[op](topic, value);
+    }
+  }
+
+  _sub(topic, observer) {
+    this._observers[topic] || (this._observers[topic] = []);
+    this._observers[topic].push(observer);
+  }
+
+  _unsub(topic, observer) {
+    if (!this._observers[topic]) {
+      return;
+    }
+    var index = this._observers[topic].indexOf(observer);
+    if (~index) {
+      this._observers[topic].splice(index, 1);
+    }
+  }
+
+  _pub(topic, message) {
+    if (!this._observers[topic]) {
+      return;
+    }
+    for (var i = this._observers[topic].length - 1; i >= 0; i--) {
+      this._observers[topic][i](message)
+    }
+  }
+}
+
+var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {}
+
+function createCommonjsModule(fn, module) {
+	return module = { exports: {} }, fn(module, module.exports), module.exports;
+}
+
+var loglevel = createCommonjsModule(function (module) {
+/*
+* loglevel - https://github.com/pimterry/loglevel
+*
+* Copyright (c) 2013 Tim Perry
+* Licensed under the MIT license.
+*/
+(function (root, definition) {
+    "use strict";
+    if (typeof define === 'function' && define.amd) {
+        define(definition);
+    } else if (typeof module === 'object' && module.exports) {
+        module.exports = definition();
+    } else {
+        root.log = definition();
+    }
+}(commonjsGlobal, function () {
+    "use strict";
+    var noop = function() {};
+    var undefinedType = "undefined";
+
+    function realMethod(methodName) {
+        if (typeof console === undefinedType) {
+            return false; // We can't build a real method without a console to log to
+        } else if (console[methodName] !== undefined) {
+            return bindMethod(console, methodName);
+        } else if (console.log !== undefined) {
+            return bindMethod(console, 'log');
+        } else {
+            return noop;
+        }
+    }
+
+    function bindMethod(obj, methodName) {
+        var method = obj[methodName];
+        if (typeof method.bind === 'function') {
+            return method.bind(obj);
+        } else {
+            try {
+                return Function.prototype.bind.call(method, obj);
+            } catch (e) {
+                // Missing bind shim or IE8 + Modernizr, fallback to wrapping
+                return function() {
+                    return Function.prototype.apply.apply(method, [obj, arguments]);
+                };
+            }
+        }
+    }
+
+    // these private functions always need `this` to be set properly
+
+    function enableLoggingWhenConsoleArrives(methodName, level, loggerName) {
+        return function () {
+            if (typeof console !== undefinedType) {
+                replaceLoggingMethods.call(this, level, loggerName);
+                this[methodName].apply(this, arguments);
+            }
+        };
+    }
+
+    function replaceLoggingMethods(level, loggerName) {
+        /*jshint validthis:true */
+        for (var i = 0; i < logMethods.length; i++) {
+            var methodName = logMethods[i];
+            this[methodName] = (i < level) ?
+                noop :
+                this.methodFactory(methodName, level, loggerName);
+        }
+    }
+
+    function defaultMethodFactory(methodName, level, loggerName) {
+        /*jshint validthis:true */
+        return realMethod(methodName) ||
+               enableLoggingWhenConsoleArrives.apply(this, arguments);
+    }
+
+    var logMethods = [
+        "trace",
+        "debug",
+        "info",
+        "warn",
+        "error"
+    ];
+
+    function Logger(name, defaultLevel, factory) {
+      var self = this;
+      var currentLevel;
+      var storageKey = "loglevel";
+      if (name) {
+        storageKey += ":" + name;
+      }
+
+      function persistLevelIfPossible(levelNum) {
+          var levelName = (logMethods[levelNum] || 'silent').toUpperCase();
+
+          // Use localStorage if available
+          try {
+              window.localStorage[storageKey] = levelName;
+              return;
+          } catch (ignore) {}
+
+          // Use session cookie as fallback
+          try {
+              window.document.cookie =
+                encodeURIComponent(storageKey) + "=" + levelName + ";";
+          } catch (ignore) {}
+      }
+
+      function getPersistedLevel() {
+          var storedLevel;
+
+          try {
+              storedLevel = window.localStorage[storageKey];
+          } catch (ignore) {}
+
+          if (typeof storedLevel === undefinedType) {
+              try {
+                  var cookie = window.document.cookie;
+                  var location = cookie.indexOf(
+                      encodeURIComponent(storageKey) + "=");
+                  if (location) {
+                      storedLevel = /^([^;]+)/.exec(cookie.slice(location))[1];
+                  }
+              } catch (ignore) {}
+          }
+
+          // If the stored level is not valid, treat it as if nothing was stored.
+          if (self.levels[storedLevel] === undefined) {
+              storedLevel = undefined;
+          }
+
+          return storedLevel;
+      }
+
+      /*
+       *
+       * Public API
+       *
+       */
+
+      self.levels = { "TRACE": 0, "DEBUG": 1, "INFO": 2, "WARN": 3,
+          "ERROR": 4, "SILENT": 5};
+
+      self.methodFactory = factory || defaultMethodFactory;
+
+      self.getLevel = function () {
+          return currentLevel;
+      };
+
+      self.setLevel = function (level, persist) {
+          if (typeof level === "string" && self.levels[level.toUpperCase()] !== undefined) {
+              level = self.levels[level.toUpperCase()];
+          }
+          if (typeof level === "number" && level >= 0 && level <= self.levels.SILENT) {
+              currentLevel = level;
+              if (persist !== false) {  // defaults to true
+                  persistLevelIfPossible(level);
+              }
+              replaceLoggingMethods.call(self, level, name);
+              if (typeof console === undefinedType && level < self.levels.SILENT) {
+                  return "No console available for logging";
+              }
+          } else {
+              throw "log.setLevel() called with invalid level: " + level;
+          }
+      };
+
+      self.setDefaultLevel = function (level) {
+          if (!getPersistedLevel()) {
+              self.setLevel(level, false);
+          }
+      };
+
+      self.enableAll = function(persist) {
+          self.setLevel(self.levels.TRACE, persist);
+      };
+
+      self.disableAll = function(persist) {
+          self.setLevel(self.levels.SILENT, persist);
+      };
+
+      // Initialize with the right level
+      var initialLevel = getPersistedLevel();
+      if (initialLevel == null) {
+          initialLevel = defaultLevel == null ? "WARN" : defaultLevel;
+      }
+      self.setLevel(initialLevel, false);
+    }
+
+    /*
+     *
+     * Package-level API
+     *
+     */
+
+    var defaultLogger = new Logger();
+
+    var _loggersByName = {};
+    defaultLogger.getLogger = function getLogger(name) {
+        if (typeof name !== "string" || name === "") {
+          throw new TypeError("You must supply a name when creating a logger.");
+        }
+
+        var logger = _loggersByName[name];
+        if (!logger) {
+          logger = _loggersByName[name] = new Logger(
+            name, defaultLogger.getLevel(), defaultLogger.methodFactory);
+        }
+        return logger;
+    };
+
+    // Grab the current global log variable in case of overwrite
+    var _log = (typeof window !== undefinedType) ? window.log : undefined;
+    defaultLogger.noConflict = function() {
+        if (typeof window !== undefinedType &&
+               window.log === defaultLogger) {
+            window.log = _log;
+        }
+
+        return defaultLogger;
+    };
+
+    return defaultLogger;
+}));
+});
+
+var index$2 = createCommonjsModule(function (module) {
+'use strict';
+var toString = Object.prototype.toString;
+
+module.exports = function (x) {
+	var prototype;
+	return toString.call(x) === '[object Object]' && (prototype = Object.getPrototypeOf(x), prototype === null || prototype === Object.getPrototypeOf({}));
+};
+});
+
+var require$$0$2 = (index$2 && typeof index$2 === 'object' && 'default' in index$2 ? index$2['default'] : index$2);
+
+var index$1 = createCommonjsModule(function (module, exports) {
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = range;
+
+var _isPlainObj = require$$0$2;
+
+var _isPlainObj2 = _interopRequireDefault(_isPlainObj);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+/**
+ * Parse `opts` to valid IDBKeyRange.
+ * https://developer.mozilla.org/en-US/docs/Web/API/IDBKeyRange
+ *
+ * @param {Object} opts
+ * @return {IDBKeyRange}
+ */
+
+function range(opts) {
+  var IDBKeyRange = commonjsGlobal.IDBKeyRange || commonjsGlobal.webkitIDBKeyRange;
+  if (opts instanceof IDBKeyRange) return opts;
+  if (typeof opts === 'undefined' || opts === null) return null;
+  if (!(0, _isPlainObj2.default)(opts)) return IDBKeyRange.only(opts);
+  var keys = Object.keys(opts).sort();
+
+  if (keys.length === 1) {
+    var key = keys[0];
+    var val = opts[key];
+
+    switch (key) {
+      case 'eq':
+        return IDBKeyRange.only(val);
+      case 'gt':
+        return IDBKeyRange.lowerBound(val, true);
+      case 'lt':
+        return IDBKeyRange.upperBound(val, true);
+      case 'gte':
+        return IDBKeyRange.lowerBound(val);
+      case 'lte':
+        return IDBKeyRange.upperBound(val);
+      default:
+        throw new TypeError('"' + key + '" is not valid key');
+    }
+  } else {
+    var x = opts[keys[0]];
+    var y = opts[keys[1]];
+    var pattern = keys.join('-');
+
+    switch (pattern) {
+      case 'gt-lt':
+        return IDBKeyRange.bound(x, y, true, true);
+      case 'gt-lte':
+        return IDBKeyRange.bound(x, y, true, false);
+      case 'gte-lt':
+        return IDBKeyRange.bound(x, y, false, true);
+      case 'gte-lte':
+        return IDBKeyRange.bound(x, y, false, false);
+      default:
+        throw new TypeError('"' + pattern + '" are conflicted keys');
+    }
+  }
+}
+module.exports = exports['default'];
+});
+
+var require$$0$1 = (index$1 && typeof index$1 === 'object' && 'default' in index$1 ? index$1['default'] : index$1);
+
+var idbIndex = createCommonjsModule(function (module) {
+var parseRange = require$$0$1;
+
+/**
+ * Expose `Index`.
+ */
+
+module.exports = Index;
+
+/**
+ * Initialize new `Index`.
+ *
+ * @param {Store} store
+ * @param {String} name
+ * @param {String|Array} field
+ * @param {Object} opts { unique: false, multi: false }
+ */
+
+function Index(store, name, field, opts) {
+  this.store = store;
+  this.name = name;
+  this.field = field;
+  this.opts = opts;
+  this.multi = opts.multi || opts.multiEntry || false;
+  this.unique = opts.unique || false;
+}
+
+/**
+ * Get `key`.
+ *
+ * @param {Object|IDBKeyRange} key
+ * @param {Function} cb
+ */
+
+Index.prototype.get = function(key, cb) {
+  var result = [];
+  var isUnique = this.unique;
+  var opts = { range: key, iterator: iterator };
+
+  this.cursor(opts, function(err) {
+    if (err) return cb(err);
+    isUnique ? cb(null, result[0]) : cb(null, result);
+  });
+
+  function iterator(cursor) {
+    result.push(cursor.value);
+    cursor.continue();
+  }
+};
+
+/**
+ * Count records by `key`.
+ *
+ * @param {String|IDBKeyRange} key
+ * @param {Function} cb
+ */
+
+Index.prototype.count = function(key, cb) {
+  var name = this.store.name;
+  var indexName = this.name;
+
+  this.store.db.transaction('readonly', [name], function(err, tr) {
+    if (err) return cb(err);
+    var index = tr.objectStore(name).index(indexName);
+    var req = index.count(parseRange(key));
+    req.onerror = cb;
+    req.onsuccess = function onsuccess(e) { cb(null, e.target.result) };
+  });
+};
+
+/**
+ * Create cursor.
+ * Proxy to `this.store` for convinience.
+ *
+ * @param {Object} opts
+ * @param {Function} cb
+ */
+
+Index.prototype.cursor = function(opts, cb) {
+  opts.index = this.name;
+  this.store.cursor(opts, cb);
+};
+});
+
+var require$$0 = (idbIndex && typeof idbIndex === 'object' && 'default' in idbIndex ? idbIndex['default'] : idbIndex);
+
+var index$3 = createCommonjsModule(function (module) {
+/**
+ * toString ref.
+ */
+
+var toString = Object.prototype.toString;
+
+/**
+ * Return the type of `val`.
+ *
+ * @param {Mixed} val
+ * @return {String}
+ * @api public
+ */
+
+module.exports = function(val){
+  switch (toString.call(val)) {
+    case '[object Date]': return 'date';
+    case '[object RegExp]': return 'regexp';
+    case '[object Arguments]': return 'arguments';
+    case '[object Array]': return 'array';
+    case '[object Error]': return 'error';
+  }
+
+  if (val === null) return 'null';
+  if (val === undefined) return 'undefined';
+  if (val !== val) return 'nan';
+  if (val && val.nodeType === 1) return 'element';
+
+  val = val.valueOf
+    ? val.valueOf()
+    : Object.prototype.valueOf.apply(val)
+
+  return typeof val;
+};
+});
+
+var require$$2 = (index$3 && typeof index$3 === 'object' && 'default' in index$3 ? index$3['default'] : index$3);
+
+var idbStore = createCommonjsModule(function (module) {
+var type = require$$2;
+var parseRange = require$$0$1;
+
+/**
+ * Expose `Store`.
+ */
+
+module.exports = Store;
+
+/**
+ * Initialize new `Store`.
+ *
+ * @param {String} name
+ * @param {Object} opts
+ */
+
+function Store(name, opts) {
+  this.db = null;
+  this.name = name;
+  this.indexes = {};
+  this.opts = opts;
+  this.key = opts.key || opts.keyPath || undefined;
+  this.increment = opts.increment || opts.autoIncretement || undefined;
+}
+
+/**
+ * Get index by `name`.
+ *
+ * @param {String} name
+ * @return {Index}
+ */
+
+Store.prototype.index = function(name) {
+  return this.indexes[name];
+};
+
+/**
+ * Put (create or replace) `key` to `val`.
+ *
+ * @param {String|Object} [key] is optional when store.key exists.
+ * @param {Any} val
+ * @param {Function} cb
+ */
+
+Store.prototype.put = function(key, val, cb) {
+  var name = this.name;
+  var keyPath = this.key;
+  if (keyPath) {
+    if (type(key) == 'object') {
+      cb = val;
+      val = key;
+      key = null;
+    } else {
+      val[keyPath] = key;
+    }
+  }
+
+  this.db.transaction('readwrite', [name], function(err, tr) {
+    if (err) return cb(err);
+    var objectStore = tr.objectStore(name);
+    var req = keyPath ? objectStore.put(val) : objectStore.put(val, key);
+    tr.onerror = tr.onabort = req.onerror = cb;
+    tr.oncomplete = function oncomplete() { cb(null, req.result) };
+  });
+};
+
+/**
+ * Get `key`.
+ *
+ * @param {String} key
+ * @param {Function} cb
+ */
+
+Store.prototype.get = function(key, cb) {
+  var name = this.name;
+  this.db.transaction('readonly', [name], function(err, tr) {
+    if (err) return cb(err);
+    var objectStore = tr.objectStore(name);
+    var req = objectStore.get(key);
+    req.onerror = cb;
+    req.onsuccess = function onsuccess(e) { cb(null, e.target.result) };
+  });
+};
+
+/**
+ * Del `key`.
+ *
+ * @param {String} key
+ * @param {Function} cb
+ */
+
+Store.prototype.del = function(key, cb) {
+  var name = this.name;
+  this.db.transaction('readwrite', [name], function(err, tr) {
+    if (err) return cb(err);
+    var objectStore = tr.objectStore(name);
+    var req = objectStore.delete(key);
+    tr.onerror = tr.onabort = req.onerror = cb;
+    tr.oncomplete = function oncomplete() { cb() };
+  });
+};
+
+/**
+ * Count.
+ *
+ * @param {Function} cb
+ */
+
+Store.prototype.count = function(cb) {
+  var name = this.name;
+  this.db.transaction('readonly', [name], function(err, tr) {
+    if (err) return cb(err);
+    var objectStore = tr.objectStore(name);
+    var req = objectStore.count();
+    req.onerror = cb;
+    req.onsuccess = function onsuccess(e) { cb(null, e.target.result) };
+  });
+};
+
+/**
+ * Clear.
+ *
+ * @param {Function} cb
+ */
+
+Store.prototype.clear = function(cb) {
+  var name = this.name;
+  this.db.transaction('readwrite', [name], function(err, tr) {
+    if (err) return cb(err);
+    var objectStore = tr.objectStore(name);
+    var req = objectStore.clear();
+    tr.onerror = tr.onabort = req.onerror = cb;
+    tr.oncomplete = function oncomplete() { cb() };
+  });
+};
+
+/**
+ * Perform batch operation.
+ *
+ * @param {Object} vals
+ * @param {Function} cb
+ */
+
+Store.prototype.batch = function(vals, cb) {
+  var name = this.name;
+  var keyPath = this.key;
+  var keys = Object.keys(vals);
+
+  this.db.transaction('readwrite', [name], function(err, tr) {
+    if (err) return cb(err);
+    var store = tr.objectStore(name);
+    var current = 0;
+    tr.onerror = tr.onabort = cb;
+    tr.oncomplete = function oncomplete() { cb() };
+    next();
+
+    function next() {
+      if (current >= keys.length) return;
+      var currentKey = keys[current];
+      var currentVal = vals[currentKey];
+      var req;
+
+      if (currentVal === null) {
+        req = store.delete(currentKey);
+      } else if (keyPath) {
+        if (!currentVal[keyPath]) currentVal[keyPath] = currentKey;
+        req = store.put(currentVal);
+      } else {
+        req = store.put(currentVal, currentKey);
+      }
+
+      req.onerror = cb;
+      req.onsuccess = next;
+      current += 1;
+    }
+  });
+};
+
+/**
+ * Get all.
+ *
+ * @param {Function} cb
+ */
+
+Store.prototype.all = function(cb) {
+  var result = [];
+
+  this.cursor({ iterator: iterator }, function(err) {
+    err ? cb(err) : cb(null, result);
+  });
+
+  function iterator(cursor) {
+    result.push(cursor.value);
+    cursor.continue();
+  }
+};
+
+/**
+ * Create read cursor for specific `range`,
+ * and pass IDBCursor to `iterator` function.
+ * https://developer.mozilla.org/en-US/docs/Web/API/IDBCursor
+ *
+ * @param {Object} opts:
+ *   {IDBRange|Object} range - passes to .openCursor()
+ *   {Function} iterator - function to call with IDBCursor
+ *   {String} [index] - name of index to start cursor by index
+ * @param {Function} cb - calls on end or error
+ */
+
+Store.prototype.cursor = function(opts, cb) {
+  var name = this.name;
+  this.db.transaction('readonly', [name], function(err, tr) {
+    if (err) return cb(err);
+    var store = opts.index
+      ? tr.objectStore(name).index(opts.index)
+      : tr.objectStore(name);
+    var req = store.openCursor(parseRange(opts.range));
+
+    req.onerror = cb;
+    req.onsuccess = function onsuccess(e) {
+      var cursor = e.target.result;
+      cursor ? opts.iterator(cursor) : cb();
+    };
+  });
+};
+});
+
+var require$$1 = (idbStore && typeof idbStore === 'object' && 'default' in idbStore ? idbStore['default'] : idbStore);
+
+var schema$1 = createCommonjsModule(function (module) {
+var type = require$$2;
+var Store = require$$1;
+var Index = require$$0;
+
+/**
+ * Expose `Schema`.
+ */
+
+module.exports = Schema;
+
+/**
+ * Initialize new `Schema`.
+ */
+
+function Schema() {
+  if (!(this instanceof Schema)) return new Schema();
+  this._stores = {};
+  this._current = {};
+  this._versions = {};
+}
+
+/**
+ * Set new version.
+ *
+ * @param {Number} version
+ * @return {Schema}
+ */
+
+Schema.prototype.version = function(version) {
+  if (type(version) != 'number' || version < 1 || version < this.getVersion())
+    throw new TypeError('not valid version');
+
+  this._current = { version: version, store: null };
+  this._versions[version] = {
+    stores: [],      // db.createObjectStore
+    dropStores: [],  // db.deleteObjectStore
+    indexes: [],     // store.createIndex
+    dropIndexes: [], // store.deleteIndex
+    version: version // version
+  };
+
+  return this;
+};
+
+/**
+ * Add store.
+ *
+ * @param {String} name
+ * @param {Object} [opts] { key: false }
+ * @return {Schema}
+ */
+
+Schema.prototype.addStore = function(name, opts) {
+  if (type(name) != 'string') throw new TypeError('`name` is required');
+  if (this._stores[name]) throw new TypeError('store is already defined');
+  var store = new Store(name, opts || {});
+  this._stores[name] = store;
+  this._versions[this.getVersion()].stores.push(store);
+  this._current.store = store;
+  return this;
+};
+
+/**
+ * Drop store.
+ *
+ * @param {String} name
+ * @return {Schema}
+ */
+
+Schema.prototype.dropStore = function(name) {
+  if (type(name) != 'string') throw new TypeError('`name` is required');
+  var store = this._stores[name];
+  if (!store) throw new TypeError('store is not defined');
+  delete this._stores[name];
+  this._versions[this.getVersion()].dropStores.push(store);
+  return this;
+};
+
+/**
+ * Add index.
+ *
+ * @param {String} name
+ * @param {String|Array} field
+ * @param {Object} [opts] { unique: false, multi: false }
+ * @return {Schema}
+ */
+
+Schema.prototype.addIndex = function(name, field, opts) {
+  if (type(name) != 'string') throw new TypeError('`name` is required');
+  if (type(field) != 'string' && type(field) != 'array') throw new TypeError('`field` is required');
+  var store = this._current.store;
+  if (store.indexes[name]) throw new TypeError('index is already defined');
+  var index = new Index(store, name, field, opts || {});
+  store.indexes[name] = index;
+  this._versions[this.getVersion()].indexes.push(index);
+  return this;
+};
+
+/**
+ * Drop index.
+ *
+ * @param {String} name
+ * @return {Schema}
+ */
+
+Schema.prototype.dropIndex = function(name) {
+  if (type(name) != 'string') throw new TypeError('`name` is required');
+  var index = this._current.store.indexes[name];
+  if (!index) throw new TypeError('index is not defined');
+  delete this._current.store.indexes[name];
+  this._versions[this.getVersion()].dropIndexes.push(index);
+  return this;
+};
+
+/**
+ * Change current store.
+ *
+ * @param {String} name
+ * @return {Schema}
+ */
+
+Schema.prototype.getStore = function(name) {
+  if (type(name) != 'string') throw new TypeError('`name` is required');
+  if (!this._stores[name]) throw new TypeError('store is not defined');
+  this._current.store = this._stores[name];
+  return this;
+};
+
+/**
+ * Get version.
+ *
+ * @return {Number}
+ */
+
+Schema.prototype.getVersion = function() {
+  return this._current.version;
+};
+
+/**
+ * Generate onupgradeneeded callback.
+ *
+ * @return {Function}
+ */
+
+Schema.prototype.callback = function() {
+  var versions = Object.keys(this._versions)
+    .map(function(v) { return this._versions[v] }, this)
+    .sort(function(a, b) { return a.version - b.version });
+
+  return function onupgradeneeded(e) {
+    var db = e.target.result;
+    var tr = e.target.transaction;
+
+    versions.forEach(function(versionSchema) {
+      if (e.oldVersion >= versionSchema.version) return;
+
+      versionSchema.stores.forEach(function(s) {
+        var options = {};
+
+        // Only pass the options that are explicitly specified to createObjectStore() otherwise IE/Edge
+        // can throw an InvalidAccessError - see https://msdn.microsoft.com/en-us/library/hh772493(v=vs.85).aspx
+        if (typeof s.key !== 'undefined') options.keyPath = s.key;
+        if (typeof s.increment !== 'undefined') options.autoIncrement = s.increment;
+
+        db.createObjectStore(s.name, options);
+      });
+
+      versionSchema.dropStores.forEach(function(s) {
+        db.deleteObjectStore(s.name);
+      });
+
+      versionSchema.indexes.forEach(function(i) {
+        var store = tr.objectStore(i.store.name);
+        store.createIndex(i.name, i.field, {
+          unique: i.unique,
+          multiEntry: i.multi
+        });
+      });
+
+      versionSchema.dropIndexes.forEach(function(i) {
+        var store = tr.objectStore(i.store.name);
+        store.deleteIndex(i.name);
+      });
+    });
+  };
+};
+});
+
+var require$$2$1 = (schema$1 && typeof schema$1 === 'object' && 'default' in schema$1 ? schema$1['default'] : schema$1);
+
+var index = createCommonjsModule(function (module, exports) {
+var type = require$$2;
+var Schema = require$$2$1;
+var Store = require$$1;
+var Index = require$$0;
+
+/**
+ * Expose `Treo`.
+ */
+
+exports = module.exports = Treo;
+
+/**
+ * Initialize new `Treo` instance.
+ *
+ * @param {String} name
+ * @param {Schema} schema
+ */
+
+function Treo(name, schema) {
+  if (!(this instanceof Treo)) return new Treo(name, schema);
+  if (type(name) != 'string') throw new TypeError('`name` required');
+  if (!(schema instanceof Schema)) throw new TypeError('not valid schema');
+
+  this.name = name;
+  this.status = 'close';
+  this.origin = null;
+  this.stores = schema._stores;
+  this.version = schema.getVersion();
+  this.onupgradeneeded = schema.callback();
+
+  // assign db property to each store
+  Object.keys(this.stores).forEach(function(storeName) {
+    this.stores[storeName].db = this;
+  }, this);
+}
+
+/**
+ * Expose core classes.
+ */
+
+exports.schema = Schema;
+exports.cmp = cmp;
+exports.Treo = Treo;
+exports.Schema = Schema;
+exports.Store = Store;
+exports.Index = Index;
+
+/**
+ * Use plugin `fn`.
+ *
+ * @param {Function} fn
+ * @return {Treo}
+ */
+
+Treo.prototype.use = function(fn) {
+  fn(this, exports);
+  return this;
+};
+
+/**
+ * Drop.
+ *
+ * @param {Function} cb
+ */
+
+Treo.prototype.drop = function(cb) {
+  var name = this.name;
+  this.close(function(err) {
+    if (err) return cb(err);
+    var req = indexedDB().deleteDatabase(name);
+    req.onerror = cb;
+    req.onsuccess = function onsuccess() { cb() };
+  });
+};
+
+/**
+ * Close.
+ *
+ * @param {Function} cb
+ */
+
+Treo.prototype.close = function(cb) {
+  if (this.status == 'close') return cb();
+  this.getInstance(function(err, db) {
+    if (err) return cb(err);
+    db.origin = null;
+    db.status = 'close';
+    db.close();
+    cb();
+  });
+};
+
+/**
+ * Get store by `name`.
+ *
+ * @param {String} name
+ * @return {Store}
+ */
+
+Treo.prototype.store = function(name) {
+  return this.stores[name];
+};
+
+/**
+ * Get db instance. It starts opening transaction only once,
+ * another requests will be scheduled to queue.
+ *
+ * @param {Function} cb
+ */
+
+Treo.prototype.getInstance = function(cb) {
+  if (this.status == 'open') return cb(null, this.origin);
+  if (this.status == 'opening') return this.queue.push(cb);
+
+  this.status = 'opening';
+  this.queue = [cb]; // queue callbacks
+
+  var that = this;
+  var req = indexedDB().open(this.name, this.version);
+  req.onupgradeneeded = this.onupgradeneeded;
+
+  req.onerror = req.onblocked = function onerror(e) {
+    that.status = 'error';
+    that.queue.forEach(function(cb) { cb(e) });
+    delete that.queue;
+  };
+
+  req.onsuccess = function onsuccess(e) {
+    that.origin = e.target.result;
+    that.status = 'open';
+    that.origin.onversionchange = function onversionchange() {
+      that.close(function() {});
+    };
+    that.queue.forEach(function(cb) { cb(null, that.origin) });
+    delete that.queue;
+  };
+};
+
+/**
+ * Create new transaction for selected `stores`.
+ *
+ * @param {String} type (readwrite|readonly)
+ * @param {Array} stores - follow indexeddb semantic
+ * @param {Function} cb
+ */
+
+Treo.prototype.transaction = function(type, stores, cb) {
+  this.getInstance(function(err, db) {
+    err ? cb(err) : cb(null, db.transaction(stores, type));
+  });
+};
+
+/**
+ * Compare 2 values using IndexedDB comparision algotihm.
+ *
+ * @param {Mixed} value1
+ * @param {Mixed} value2
+ * @return {Number} -1|0|1
+ */
+
+function cmp() {
+  return indexedDB().cmp.apply(indexedDB(), arguments);
+}
+
+/**
+ * Dynamic link to `global.indexedDB` for polyfills support.
+ *
+ * @return {IDBDatabase}
+ */
+
+function indexedDB() {
+  return commonjsGlobal._indexedDB
+    || commonjsGlobal.indexedDB
+    || commonjsGlobal.msIndexedDB
+    || commonjsGlobal.mozIndexedDB
+    || commonjsGlobal.webkitIndexedDB;
+}
+});
+
+class SiftView {
+  constructor() {
+    this._resizeHandler = null;
+    this._proxy = parent;
+    this.controller = new Observable();
+    this._registerMessageListeners();
+  }
+
+  publish(topic, value) {
+   this._proxy.postMessage({
+      method: 'notifyController',
+      params: {
+        topic: topic,
+        value: value } },
+      '*');
+  }
+
+  registerOnLoadHandler(handler) {
+    window.addEventListener('load', handler);
+  }
+
+  // TODO: should we really limit resize events to every 1 second?
+  registerOnResizeHandler(handler, resizeTimeout = 1000) {
+    window.addEventListener('resize', () => {
+      if (!this.resizeHandler) {
+        this.resizeHandler = setTimeout(() => {
+          this.resizeHandler = null;
+          handler();
+        }, resizeTimeout);
+      }
+    });
+  }
+
+  _registerMessageListeners() {
+    window.addEventListener('message', (e) => {
+      let method = e.data.method;
+      let params = e.data.params;
+      if(method === 'notifyView') {
+        this.controller.publish(params.topic, params.value);
+      }
+      else if(this[method]) {
+        this[method](params);
+      }
+      else {
+        console.warn('[SiftView]: method not implemented: ', method);
+      }
+    }, false);
+  }
+}
+
+/**
+ * SiftView
+ */
+function registerSiftView(siftView) {
+  console.log('[Redsift::registerSiftView]: registered');
+}
+
+function node_each(callback) {
+  var node = this, current, next = [node], children, i, n;
+  do {
+    current = next.reverse(), next = [];
+    while (node = current.pop()) {
+      callback(node), children = node.children;
+      if (children) for (i = 0, n = children.length; i < n; ++i) {
+        next.push(children[i]);
+      }
+    }
+  } while (next.length);
+  return this;
+}
+
+function node_eachBefore(callback) {
+  var node = this, nodes = [node], children, i;
+  while (node = nodes.pop()) {
+    callback(node), children = node.children;
+    if (children) for (i = children.length - 1; i >= 0; --i) {
+      nodes.push(children[i]);
+    }
+  }
+  return this;
+}
+
+function node_eachAfter(callback) {
+  var node = this, nodes = [node], next = [], children, i, n;
+  while (node = nodes.pop()) {
+    next.push(node), children = node.children;
+    if (children) for (i = 0, n = children.length; i < n; ++i) {
+      nodes.push(children[i]);
+    }
+  }
+  while (node = next.pop()) {
+    callback(node);
+  }
+  return this;
+}
+
+function node_sum(value) {
+  return this.eachAfter(function(node) {
+    var sum = +value(node.data) || 0,
+        children = node.children,
+        i = children && children.length;
+    while (--i >= 0) sum += children[i].value;
+    node.value = sum;
+  });
+}
+
+function node_sort(compare) {
+  return this.eachBefore(function(node) {
+    if (node.children) {
+      node.children.sort(compare);
+    }
+  });
+}
+
+function node_path(end) {
+  var start = this,
+      ancestor = leastCommonAncestor(start, end),
+      nodes = [start];
+  while (start !== ancestor) {
+    start = start.parent;
+    nodes.push(start);
+  }
+  var k = nodes.length;
+  while (end !== ancestor) {
+    nodes.splice(k, 0, end);
+    end = end.parent;
+  }
+  return nodes;
+}
+
+function leastCommonAncestor(a, b) {
+  if (a === b) return a;
+  var aNodes = a.ancestors(),
+      bNodes = b.ancestors(),
+      c = null;
+  a = aNodes.pop();
+  b = bNodes.pop();
+  while (a === b) {
+    c = a;
+    a = aNodes.pop();
+    b = bNodes.pop();
+  }
+  return c;
+}
+
+function node_ancestors() {
+  var node = this, nodes = [node];
+  while (node = node.parent) {
+    nodes.push(node);
+  }
+  return nodes;
+}
+
+function node_descendants() {
+  var nodes = [];
+  this.each(function(node) {
+    nodes.push(node);
+  });
+  return nodes;
+}
+
+function node_leaves() {
+  var leaves = [];
+  this.eachBefore(function(node) {
+    if (!node.children) {
+      leaves.push(node);
+    }
+  });
+  return leaves;
+}
+
+function node_links() {
+  var root = this, links = [];
+  root.each(function(node) {
+    if (node !== root) { // Don’t include the root’s parent, if any.
+      links.push({source: node.parent, target: node});
+    }
+  });
+  return links;
+}
+
+function hierarchy(data, children) {
+  var root = new Node(data),
+      valued = +data.value && (root.value = data.value),
+      node,
+      nodes = [root],
+      child,
+      childs,
+      i,
+      n;
+
+  if (children == null) children = defaultChildren;
+
+  while (node = nodes.pop()) {
+    if (valued) node.value = +node.data.value;
+    if ((childs = children(node.data)) && (n = childs.length)) {
+      node.children = new Array(n);
+      for (i = n - 1; i >= 0; --i) {
+        nodes.push(child = node.children[i] = new Node(childs[i]));
+        child.parent = node;
+        child.depth = node.depth + 1;
+      }
+    }
+  }
+
+  return root.eachBefore(computeHeight);
+}
+
+function node_copy() {
+  return hierarchy(this).eachBefore(copyData);
+}
+
+function defaultChildren(d) {
+  return d.children;
+}
+
+function copyData(node) {
+  node.data = node.data.data;
+}
+
+function computeHeight(node) {
+  var height = 0;
+  do node.height = height;
+  while ((node = node.parent) && (node.height < ++height));
+}
+
+function Node(data) {
+  this.data = data;
+  this.depth =
+  this.height = 0;
+  this.parent = null;
+}
+
+Node.prototype = hierarchy.prototype = {
+  constructor: Node,
+  each: node_each,
+  eachAfter: node_eachAfter,
+  eachBefore: node_eachBefore,
+  sum: node_sum,
+  sort: node_sort,
+  path: node_path,
+  ancestors: node_ancestors,
+  descendants: node_descendants,
+  leaves: node_leaves,
+  links: node_links,
+  copy: node_copy
+};
+
+function required(f) {
+  if (typeof f !== "function") throw new Error;
+  return f;
+}
+
+function constantZero() {
+  return 0;
+}
+
+function constant$2(x) {
+  return function() {
+    return x;
+  };
+}
+
+function roundNode(node) {
+  node.x0 = Math.round(node.x0);
+  node.y0 = Math.round(node.y0);
+  node.x1 = Math.round(node.x1);
+  node.y1 = Math.round(node.y1);
+}
+
+function treemapDice(parent, x0, y0, x1, y1) {
+  var nodes = parent.children,
+      node,
+      i = -1,
+      n = nodes.length,
+      k = parent.value && (x1 - x0) / parent.value;
+
+  while (++i < n) {
+    node = nodes[i], node.y0 = y0, node.y1 = y1;
+    node.x0 = x0, node.x1 = x0 += node.value * k;
+  }
+}
+
+function treemapSlice(parent, x0, y0, x1, y1) {
+  var nodes = parent.children,
+      node,
+      i = -1,
+      n = nodes.length,
+      k = parent.value && (y1 - y0) / parent.value;
+
+  while (++i < n) {
+    node = nodes[i], node.x0 = x0, node.x1 = x1;
+    node.y0 = y0, node.y1 = y0 += node.value * k;
+  }
+}
+
+var phi = (1 + Math.sqrt(5)) / 2;
+
+function squarifyRatio(ratio, parent, x0, y0, x1, y1) {
+  var rows = [],
+      nodes = parent.children,
+      row,
+      nodeValue,
+      i0 = 0,
+      i1,
+      n = nodes.length,
+      dx, dy,
+      value = parent.value,
+      sumValue,
+      minValue,
+      maxValue,
+      newRatio,
+      minRatio,
+      alpha,
+      beta;
+
+  while (i0 < n) {
+    dx = x1 - x0, dy = y1 - y0;
+    minValue = maxValue = sumValue = nodes[i0].value;
+    alpha = Math.max(dy / dx, dx / dy) / (value * ratio);
+    beta = sumValue * sumValue * alpha;
+    minRatio = Math.max(maxValue / beta, beta / minValue);
+
+    // Keep adding nodes while the aspect ratio maintains or improves.
+    for (i1 = i0 + 1; i1 < n; ++i1) {
+      sumValue += nodeValue = nodes[i1].value;
+      if (nodeValue < minValue) minValue = nodeValue;
+      if (nodeValue > maxValue) maxValue = nodeValue;
+      beta = sumValue * sumValue * alpha;
+      newRatio = Math.max(maxValue / beta, beta / minValue);
+      if (newRatio > minRatio) { sumValue -= nodeValue; break; }
+      minRatio = newRatio;
+    }
+
+    // Position and record the row orientation.
+    rows.push(row = {value: sumValue, dice: dx < dy, children: nodes.slice(i0, i1)});
+    if (row.dice) treemapDice(row, x0, y0, x1, value ? y0 += dy * sumValue / value : y1);
+    else treemapSlice(row, x0, y0, value ? x0 += dx * sumValue / value : x1, y1);
+    value -= sumValue, i0 = i1;
+  }
+
+  return rows;
+}
+
+var squarify = (function custom(ratio) {
+
+  function squarify(parent, x0, y0, x1, y1) {
+    squarifyRatio(ratio, parent, x0, y0, x1, y1);
+  }
+
+  squarify.ratio = function(x) {
+    return custom((x = +x) > 1 ? x : 1);
+  };
+
+  return squarify;
+})(phi);
+
+function treemap() {
+  var tile = squarify,
+      round = false,
+      dx = 1,
+      dy = 1,
+      paddingStack = [0],
+      paddingInner = constantZero,
+      paddingTop = constantZero,
+      paddingRight = constantZero,
+      paddingBottom = constantZero,
+      paddingLeft = constantZero;
+
+  function treemap(root) {
+    root.x0 =
+    root.y0 = 0;
+    root.x1 = dx;
+    root.y1 = dy;
+    root.eachBefore(positionNode);
+    paddingStack = [0];
+    if (round) root.eachBefore(roundNode);
+    return root;
+  }
+
+  function positionNode(node) {
+    var p = paddingStack[node.depth],
+        x0 = node.x0 + p,
+        y0 = node.y0 + p,
+        x1 = node.x1 - p,
+        y1 = node.y1 - p;
+    if (x1 < x0) x0 = x1 = (x0 + x1) / 2;
+    if (y1 < y0) y0 = y1 = (y0 + y1) / 2;
+    node.x0 = x0;
+    node.y0 = y0;
+    node.x1 = x1;
+    node.y1 = y1;
+    if (node.children) {
+      p = paddingStack[node.depth + 1] = paddingInner(node) / 2;
+      x0 += paddingLeft(node) - p;
+      y0 += paddingTop(node) - p;
+      x1 -= paddingRight(node) - p;
+      y1 -= paddingBottom(node) - p;
+      if (x1 < x0) x0 = x1 = (x0 + x1) / 2;
+      if (y1 < y0) y0 = y1 = (y0 + y1) / 2;
+      tile(node, x0, y0, x1, y1);
+    }
+  }
+
+  treemap.round = function(x) {
+    return arguments.length ? (round = !!x, treemap) : round;
+  };
+
+  treemap.size = function(x) {
+    return arguments.length ? (dx = +x[0], dy = +x[1], treemap) : [dx, dy];
+  };
+
+  treemap.tile = function(x) {
+    return arguments.length ? (tile = required(x), treemap) : tile;
+  };
+
+  treemap.padding = function(x) {
+    return arguments.length ? treemap.paddingInner(x).paddingOuter(x) : treemap.paddingInner();
+  };
+
+  treemap.paddingInner = function(x) {
+    return arguments.length ? (paddingInner = typeof x === "function" ? x : constant$2(+x), treemap) : paddingInner;
+  };
+
+  treemap.paddingOuter = function(x) {
+    return arguments.length ? treemap.paddingTop(x).paddingRight(x).paddingBottom(x).paddingLeft(x) : treemap.paddingTop();
+  };
+
+  treemap.paddingTop = function(x) {
+    return arguments.length ? (paddingTop = typeof x === "function" ? x : constant$2(+x), treemap) : paddingTop;
+  };
+
+  treemap.paddingRight = function(x) {
+    return arguments.length ? (paddingRight = typeof x === "function" ? x : constant$2(+x), treemap) : paddingRight;
+  };
+
+  treemap.paddingBottom = function(x) {
+    return arguments.length ? (paddingBottom = typeof x === "function" ? x : constant$2(+x), treemap) : paddingBottom;
+  };
+
+  treemap.paddingLeft = function(x) {
+    return arguments.length ? (paddingLeft = typeof x === "function" ? x : constant$2(+x), treemap) : paddingLeft;
+  };
+
+  return treemap;
+}
+
+(function custom(ratio) {
+
+  function resquarify(parent, x0, y0, x1, y1) {
+    if ((rows = parent._squarify) && (rows.ratio === ratio)) {
+      var rows,
+          row,
+          nodes,
+          i,
+          j = -1,
+          n,
+          m = rows.length,
+          value = parent.value;
+
+      while (++j < m) {
+        row = rows[j], nodes = row.children;
+        for (i = row.value = 0, n = nodes.length; i < n; ++i) row.value += nodes[i].value;
+        if (row.dice) treemapDice(row, x0, y0, x1, y0 += (y1 - y0) * row.value / value);
+        else treemapSlice(row, x0, y0, x0 += (x1 - x0) * row.value / value, y1);
+        value -= row.value;
+      }
+    } else {
+      parent._squarify = rows = squarifyRatio(ratio, parent, x0, y0, x1, y1);
+      rows.ratio = ratio;
+    }
+  }
+
+  resquarify.ratio = function(x) {
+    return custom((x = +x) > 1 ? x : 1);
+  };
+
+  return resquarify;
+})(phi);
+
+function ascending$1(a, b) {
+  return a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
+}
+
+function bisector(compare) {
+  if (compare.length === 1) compare = ascendingComparator(compare);
+  return {
+    left: function(a, x, lo, hi) {
+      if (lo == null) lo = 0;
+      if (hi == null) hi = a.length;
+      while (lo < hi) {
+        var mid = lo + hi >>> 1;
+        if (compare(a[mid], x) < 0) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo;
+    },
+    right: function(a, x, lo, hi) {
+      if (lo == null) lo = 0;
+      if (hi == null) hi = a.length;
+      while (lo < hi) {
+        var mid = lo + hi >>> 1;
+        if (compare(a[mid], x) > 0) hi = mid;
+        else lo = mid + 1;
+      }
+      return lo;
+    }
+  };
+}
+
+function ascendingComparator(f) {
+  return function(d, x) {
+    return ascending$1(f(d), x);
+  };
+}
+
+var ascendingBisect = bisector(ascending$1);
+
+var prefix = "$";
+
+function Map() {}
+
+Map.prototype = map$1.prototype = {
+  constructor: Map,
+  has: function(key) {
+    return (prefix + key) in this;
+  },
+  get: function(key) {
+    return this[prefix + key];
+  },
+  set: function(key, value) {
+    this[prefix + key] = value;
+    return this;
+  },
+  remove: function(key) {
+    var property = prefix + key;
+    return property in this && delete this[property];
+  },
+  clear: function() {
+    for (var property in this) if (property[0] === prefix) delete this[property];
+  },
+  keys: function() {
+    var keys = [];
+    for (var property in this) if (property[0] === prefix) keys.push(property.slice(1));
+    return keys;
+  },
+  values: function() {
+    var values = [];
+    for (var property in this) if (property[0] === prefix) values.push(this[property]);
+    return values;
+  },
+  entries: function() {
+    var entries = [];
+    for (var property in this) if (property[0] === prefix) entries.push({key: property.slice(1), value: this[property]});
+    return entries;
+  },
+  size: function() {
+    var size = 0;
+    for (var property in this) if (property[0] === prefix) ++size;
+    return size;
+  },
+  empty: function() {
+    for (var property in this) if (property[0] === prefix) return false;
+    return true;
+  },
+  each: function(f) {
+    for (var property in this) if (property[0] === prefix) f(this[property], property.slice(1), this);
+  }
+};
+
+function map$1(object, f) {
+  var map = new Map;
+
+  // Copy constructor.
+  if (object instanceof Map) object.each(function(value, key) { map.set(key, value); });
+
+  // Index array by numeric index or specified key function.
+  else if (Array.isArray(object)) {
+    var i = -1,
+        n = object.length,
+        o;
+
+    if (f == null) while (++i < n) map.set(i, object[i]);
+    else while (++i < n) map.set(f(o = object[i], i, object), o);
+  }
+
+  // Convert object to map.
+  else if (object) for (var key in object) map.set(key, object[key]);
+
+  return map;
+}
+
+var proto = map$1.prototype;
+
+var array$2 = Array.prototype;
+
+var slice$1 = array$2.slice;
+
+var implicit = {name: "implicit"};
+
+function ordinal(range) {
+  var index = map$1(),
+      domain = [],
+      unknown = implicit;
+
+  range = range == null ? [] : slice$1.call(range);
+
+  function scale(d) {
+    var key = d + "", i = index.get(key);
+    if (!i) {
+      if (unknown !== implicit) return unknown;
+      index.set(key, i = domain.push(d));
+    }
+    return range[(i - 1) % range.length];
+  }
+
+  scale.domain = function(_) {
+    if (!arguments.length) return domain.slice();
+    domain = [], index = map$1();
+    var i = -1, n = _.length, d, key;
+    while (++i < n) if (!index.has(key = (d = _[i]) + "")) index.set(key, domain.push(d));
+    return scale;
+  };
+
+  scale.range = function(_) {
+    return arguments.length ? (range = slice$1.call(_), scale) : range.slice();
+  };
+
+  scale.unknown = function(_) {
+    return arguments.length ? (unknown = _, scale) : unknown;
+  };
+
+  scale.copy = function() {
+    return ordinal()
+        .domain(domain)
+        .range(range)
+        .unknown(unknown);
+  };
+
+  return scale;
+}
+
 // Computes the decimal coefficient and exponent of the specified number x with
 // significant digits p, where x is positive and p is in [1, 21] or undefined.
 // For example, formatDecimal(1.23) returns ["123", 0].
@@ -2035,7 +4449,7 @@ function formatDecimal(x, p) {
   ];
 }
 
-function exponent(x) {
+function exponent$1(x) {
   return x = formatDecimal(Math.abs(x)), x ? x[1] : NaN;
 }
 
@@ -2290,7 +4704,7 @@ function formatLocale(locale) {
 
   function formatPrefix(specifier, value) {
     var f = newFormat((specifier = formatSpecifier(specifier), specifier.type = "f", specifier)),
-        e = Math.max(-8, Math.min(8, Math.floor(exponent(value) / 3))) * 3,
+        e = Math.max(-8, Math.min(8, Math.floor(exponent$1(value) / 3))) * 3,
         k = Math.pow(10, -e),
         prefix = prefixes[8 + e / 3];
     return function(value) {
@@ -3186,1171 +5600,6 @@ var inferno = ramp(colors("00000401000501010601010802010a02020c02020e03021004031
 
 var plasma = ramp(colors("0d088710078813078916078a19068c1b068d1d068e20068f2206902406912605912805922a05932c05942e05952f059631059733059735049837049938049a3a049a3c049b3e049c3f049c41049d43039e44039e46039f48039f4903a04b03a14c02a14e02a25002a25102a35302a35502a45601a45801a45901a55b01a55c01a65e01a66001a66100a76300a76400a76600a76700a86900a86a00a86c00a86e00a86f00a87100a87201a87401a87501a87701a87801a87a02a87b02a87d03a87e03a88004a88104a78305a78405a78606a68707a68808a68a09a58b0aa58d0ba58e0ca48f0da4910ea3920fa39410a29511a19613a19814a099159f9a169f9c179e9d189d9e199da01a9ca11b9ba21d9aa31e9aa51f99a62098a72197a82296aa2395ab2494ac2694ad2793ae2892b02991b12a90b22b8fb32c8eb42e8db52f8cb6308bb7318ab83289ba3388bb3488bc3587bd3786be3885bf3984c03a83c13b82c23c81c33d80c43e7fc5407ec6417dc7427cc8437bc9447aca457acb4679cc4778cc4977cd4a76ce4b75cf4c74d04d73d14e72d24f71d35171d45270d5536fd5546ed6556dd7566cd8576bd9586ada5a6ada5b69db5c68dc5d67dd5e66de5f65de6164df6263e06363e16462e26561e26660e3685fe4695ee56a5de56b5de66c5ce76e5be76f5ae87059e97158e97257ea7457eb7556eb7655ec7754ed7953ed7a52ee7b51ef7c51ef7e50f07f4ff0804ef1814df1834cf2844bf3854bf3874af48849f48948f58b47f58c46f68d45f68f44f79044f79143f79342f89441f89540f9973ff9983ef99a3efa9b3dfa9c3cfa9e3bfb9f3afba139fba238fca338fca537fca636fca835fca934fdab33fdac33fdae32fdaf31fdb130fdb22ffdb42ffdb52efeb72dfeb82cfeba2cfebb2bfebd2afebe2afec029fdc229fdc328fdc527fdc627fdc827fdca26fdcb26fccd25fcce25fcd025fcd225fbd324fbd524fbd724fad824fada24f9dc24f9dd25f8df25f8e125f7e225f7e425f6e626f6e826f5e926f5eb27f4ed27f3ee27f3f027f2f227f1f426f1f525f0f724f0f921"));
 
-/**
- * Observable pattern implementation.
- * Supports topics as String or an Array.
- */
-class Observable {
-  constructor() {
-    this._observers = [];
-  }
-
-  subscribe(topic, observer) {
-    this._op('_sub', topic, observer);
-  }
-
-  unsubscribe(topic, observer) {
-    this._op('_unsub', topic, observer);
-  }
-
-  unsubscribeAll(topic) {
-    if (!this._observers[topic]) {
-      return;
-    }
-    delete this._observers[topic];
-  }
-
-  publish(topic, message) {
-    this._op('_pub', topic, message);
-  }
-
-  /**
-   * Internal methods
-   */
-  _op(op, topic, value) {
-    if (Array.isArray(topic)) {
-      topic.forEach((t) => {
-        this[op](t, value);
-      });
-    }
-    else {
-      this[op](topic, value);
-    }
-  }
-
-  _sub(topic, observer) {
-    this._observers[topic] || (this._observers[topic] = []);
-    this._observers[topic].push(observer);
-  }
-
-  _unsub(topic, observer) {
-    if (!this._observers[topic]) {
-      return;
-    }
-    var index = this._observers[topic].indexOf(observer);
-    if (~index) {
-      this._observers[topic].splice(index, 1);
-    }
-  }
-
-  _pub(topic, message) {
-    if (!this._observers[topic]) {
-      return;
-    }
-    for (var i = this._observers[topic].length - 1; i >= 0; i--) {
-      this._observers[topic][i](message)
-    }
-  }
-}
-
-var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {}
-
-function createCommonjsModule(fn, module) {
-	return module = { exports: {} }, fn(module, module.exports), module.exports;
-}
-
-var index$3 = createCommonjsModule(function (module) {
-'use strict';
-var toString = Object.prototype.toString;
-
-module.exports = function (x) {
-	var prototype;
-	return toString.call(x) === '[object Object]' && (prototype = Object.getPrototypeOf(x), prototype === null || prototype === Object.getPrototypeOf({}));
-};
-});
-
-var require$$0$2 = (index$3 && typeof index$3 === 'object' && 'default' in index$3 ? index$3['default'] : index$3);
-
-var index$2 = createCommonjsModule(function (module, exports) {
-'use strict';
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.default = range;
-
-var _isPlainObj = require$$0$2;
-
-var _isPlainObj2 = _interopRequireDefault(_isPlainObj);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-/**
- * Parse `opts` to valid IDBKeyRange.
- * https://developer.mozilla.org/en-US/docs/Web/API/IDBKeyRange
- *
- * @param {Object} opts
- * @return {IDBKeyRange}
- */
-
-function range(opts) {
-  var IDBKeyRange = commonjsGlobal.IDBKeyRange || commonjsGlobal.webkitIDBKeyRange;
-  if (opts instanceof IDBKeyRange) return opts;
-  if (typeof opts === 'undefined' || opts === null) return null;
-  if (!(0, _isPlainObj2.default)(opts)) return IDBKeyRange.only(opts);
-  var keys = Object.keys(opts).sort();
-
-  if (keys.length === 1) {
-    var key = keys[0];
-    var val = opts[key];
-
-    switch (key) {
-      case 'eq':
-        return IDBKeyRange.only(val);
-      case 'gt':
-        return IDBKeyRange.lowerBound(val, true);
-      case 'lt':
-        return IDBKeyRange.upperBound(val, true);
-      case 'gte':
-        return IDBKeyRange.lowerBound(val);
-      case 'lte':
-        return IDBKeyRange.upperBound(val);
-      default:
-        throw new TypeError('"' + key + '" is not valid key');
-    }
-  } else {
-    var x = opts[keys[0]];
-    var y = opts[keys[1]];
-    var pattern = keys.join('-');
-
-    switch (pattern) {
-      case 'gt-lt':
-        return IDBKeyRange.bound(x, y, true, true);
-      case 'gt-lte':
-        return IDBKeyRange.bound(x, y, true, false);
-      case 'gte-lt':
-        return IDBKeyRange.bound(x, y, false, true);
-      case 'gte-lte':
-        return IDBKeyRange.bound(x, y, false, false);
-      default:
-        throw new TypeError('"' + pattern + '" are conflicted keys');
-    }
-  }
-}
-module.exports = exports['default'];
-});
-
-var require$$0$1 = (index$2 && typeof index$2 === 'object' && 'default' in index$2 ? index$2['default'] : index$2);
-
-var idbIndex = createCommonjsModule(function (module) {
-var parseRange = require$$0$1;
-
-/**
- * Expose `Index`.
- */
-
-module.exports = Index;
-
-/**
- * Initialize new `Index`.
- *
- * @param {Store} store
- * @param {String} name
- * @param {String|Array} field
- * @param {Object} opts { unique: false, multi: false }
- */
-
-function Index(store, name, field, opts) {
-  this.store = store;
-  this.name = name;
-  this.field = field;
-  this.opts = opts;
-  this.multi = opts.multi || opts.multiEntry || false;
-  this.unique = opts.unique || false;
-}
-
-/**
- * Get `key`.
- *
- * @param {Object|IDBKeyRange} key
- * @param {Function} cb
- */
-
-Index.prototype.get = function(key, cb) {
-  var result = [];
-  var isUnique = this.unique;
-  var opts = { range: key, iterator: iterator };
-
-  this.cursor(opts, function(err) {
-    if (err) return cb(err);
-    isUnique ? cb(null, result[0]) : cb(null, result);
-  });
-
-  function iterator(cursor) {
-    result.push(cursor.value);
-    cursor.continue();
-  }
-};
-
-/**
- * Count records by `key`.
- *
- * @param {String|IDBKeyRange} key
- * @param {Function} cb
- */
-
-Index.prototype.count = function(key, cb) {
-  var name = this.store.name;
-  var indexName = this.name;
-
-  this.store.db.transaction('readonly', [name], function(err, tr) {
-    if (err) return cb(err);
-    var index = tr.objectStore(name).index(indexName);
-    var req = index.count(parseRange(key));
-    req.onerror = cb;
-    req.onsuccess = function onsuccess(e) { cb(null, e.target.result) };
-  });
-};
-
-/**
- * Create cursor.
- * Proxy to `this.store` for convinience.
- *
- * @param {Object} opts
- * @param {Function} cb
- */
-
-Index.prototype.cursor = function(opts, cb) {
-  opts.index = this.name;
-  this.store.cursor(opts, cb);
-};
-});
-
-var require$$0 = (idbIndex && typeof idbIndex === 'object' && 'default' in idbIndex ? idbIndex['default'] : idbIndex);
-
-var index$4 = createCommonjsModule(function (module) {
-/**
- * toString ref.
- */
-
-var toString = Object.prototype.toString;
-
-/**
- * Return the type of `val`.
- *
- * @param {Mixed} val
- * @return {String}
- * @api public
- */
-
-module.exports = function(val){
-  switch (toString.call(val)) {
-    case '[object Date]': return 'date';
-    case '[object RegExp]': return 'regexp';
-    case '[object Arguments]': return 'arguments';
-    case '[object Array]': return 'array';
-    case '[object Error]': return 'error';
-  }
-
-  if (val === null) return 'null';
-  if (val === undefined) return 'undefined';
-  if (val !== val) return 'nan';
-  if (val && val.nodeType === 1) return 'element';
-
-  val = val.valueOf
-    ? val.valueOf()
-    : Object.prototype.valueOf.apply(val)
-
-  return typeof val;
-};
-});
-
-var require$$2 = (index$4 && typeof index$4 === 'object' && 'default' in index$4 ? index$4['default'] : index$4);
-
-var idbStore = createCommonjsModule(function (module) {
-var type = require$$2;
-var parseRange = require$$0$1;
-
-/**
- * Expose `Store`.
- */
-
-module.exports = Store;
-
-/**
- * Initialize new `Store`.
- *
- * @param {String} name
- * @param {Object} opts
- */
-
-function Store(name, opts) {
-  this.db = null;
-  this.name = name;
-  this.indexes = {};
-  this.opts = opts;
-  this.key = opts.key || opts.keyPath || undefined;
-  this.increment = opts.increment || opts.autoIncretement || undefined;
-}
-
-/**
- * Get index by `name`.
- *
- * @param {String} name
- * @return {Index}
- */
-
-Store.prototype.index = function(name) {
-  return this.indexes[name];
-};
-
-/**
- * Put (create or replace) `key` to `val`.
- *
- * @param {String|Object} [key] is optional when store.key exists.
- * @param {Any} val
- * @param {Function} cb
- */
-
-Store.prototype.put = function(key, val, cb) {
-  var name = this.name;
-  var keyPath = this.key;
-  if (keyPath) {
-    if (type(key) == 'object') {
-      cb = val;
-      val = key;
-      key = null;
-    } else {
-      val[keyPath] = key;
-    }
-  }
-
-  this.db.transaction('readwrite', [name], function(err, tr) {
-    if (err) return cb(err);
-    var objectStore = tr.objectStore(name);
-    var req = keyPath ? objectStore.put(val) : objectStore.put(val, key);
-    tr.onerror = tr.onabort = req.onerror = cb;
-    tr.oncomplete = function oncomplete() { cb(null, req.result) };
-  });
-};
-
-/**
- * Get `key`.
- *
- * @param {String} key
- * @param {Function} cb
- */
-
-Store.prototype.get = function(key, cb) {
-  var name = this.name;
-  this.db.transaction('readonly', [name], function(err, tr) {
-    if (err) return cb(err);
-    var objectStore = tr.objectStore(name);
-    var req = objectStore.get(key);
-    req.onerror = cb;
-    req.onsuccess = function onsuccess(e) { cb(null, e.target.result) };
-  });
-};
-
-/**
- * Del `key`.
- *
- * @param {String} key
- * @param {Function} cb
- */
-
-Store.prototype.del = function(key, cb) {
-  var name = this.name;
-  this.db.transaction('readwrite', [name], function(err, tr) {
-    if (err) return cb(err);
-    var objectStore = tr.objectStore(name);
-    var req = objectStore.delete(key);
-    tr.onerror = tr.onabort = req.onerror = cb;
-    tr.oncomplete = function oncomplete() { cb() };
-  });
-};
-
-/**
- * Count.
- *
- * @param {Function} cb
- */
-
-Store.prototype.count = function(cb) {
-  var name = this.name;
-  this.db.transaction('readonly', [name], function(err, tr) {
-    if (err) return cb(err);
-    var objectStore = tr.objectStore(name);
-    var req = objectStore.count();
-    req.onerror = cb;
-    req.onsuccess = function onsuccess(e) { cb(null, e.target.result) };
-  });
-};
-
-/**
- * Clear.
- *
- * @param {Function} cb
- */
-
-Store.prototype.clear = function(cb) {
-  var name = this.name;
-  this.db.transaction('readwrite', [name], function(err, tr) {
-    if (err) return cb(err);
-    var objectStore = tr.objectStore(name);
-    var req = objectStore.clear();
-    tr.onerror = tr.onabort = req.onerror = cb;
-    tr.oncomplete = function oncomplete() { cb() };
-  });
-};
-
-/**
- * Perform batch operation.
- *
- * @param {Object} vals
- * @param {Function} cb
- */
-
-Store.prototype.batch = function(vals, cb) {
-  var name = this.name;
-  var keyPath = this.key;
-  var keys = Object.keys(vals);
-
-  this.db.transaction('readwrite', [name], function(err, tr) {
-    if (err) return cb(err);
-    var store = tr.objectStore(name);
-    var current = 0;
-    tr.onerror = tr.onabort = cb;
-    tr.oncomplete = function oncomplete() { cb() };
-    next();
-
-    function next() {
-      if (current >= keys.length) return;
-      var currentKey = keys[current];
-      var currentVal = vals[currentKey];
-      var req;
-
-      if (currentVal === null) {
-        req = store.delete(currentKey);
-      } else if (keyPath) {
-        if (!currentVal[keyPath]) currentVal[keyPath] = currentKey;
-        req = store.put(currentVal);
-      } else {
-        req = store.put(currentVal, currentKey);
-      }
-
-      req.onerror = cb;
-      req.onsuccess = next;
-      current += 1;
-    }
-  });
-};
-
-/**
- * Get all.
- *
- * @param {Function} cb
- */
-
-Store.prototype.all = function(cb) {
-  var result = [];
-
-  this.cursor({ iterator: iterator }, function(err) {
-    err ? cb(err) : cb(null, result);
-  });
-
-  function iterator(cursor) {
-    result.push(cursor.value);
-    cursor.continue();
-  }
-};
-
-/**
- * Create read cursor for specific `range`,
- * and pass IDBCursor to `iterator` function.
- * https://developer.mozilla.org/en-US/docs/Web/API/IDBCursor
- *
- * @param {Object} opts:
- *   {IDBRange|Object} range - passes to .openCursor()
- *   {Function} iterator - function to call with IDBCursor
- *   {String} [index] - name of index to start cursor by index
- * @param {Function} cb - calls on end or error
- */
-
-Store.prototype.cursor = function(opts, cb) {
-  var name = this.name;
-  this.db.transaction('readonly', [name], function(err, tr) {
-    if (err) return cb(err);
-    var store = opts.index
-      ? tr.objectStore(name).index(opts.index)
-      : tr.objectStore(name);
-    var req = store.openCursor(parseRange(opts.range));
-
-    req.onerror = cb;
-    req.onsuccess = function onsuccess(e) {
-      var cursor = e.target.result;
-      cursor ? opts.iterator(cursor) : cb();
-    };
-  });
-};
-});
-
-var require$$1 = (idbStore && typeof idbStore === 'object' && 'default' in idbStore ? idbStore['default'] : idbStore);
-
-var schema$1 = createCommonjsModule(function (module) {
-var type = require$$2;
-var Store = require$$1;
-var Index = require$$0;
-
-/**
- * Expose `Schema`.
- */
-
-module.exports = Schema;
-
-/**
- * Initialize new `Schema`.
- */
-
-function Schema() {
-  if (!(this instanceof Schema)) return new Schema();
-  this._stores = {};
-  this._current = {};
-  this._versions = {};
-}
-
-/**
- * Set new version.
- *
- * @param {Number} version
- * @return {Schema}
- */
-
-Schema.prototype.version = function(version) {
-  if (type(version) != 'number' || version < 1 || version < this.getVersion())
-    throw new TypeError('not valid version');
-
-  this._current = { version: version, store: null };
-  this._versions[version] = {
-    stores: [],      // db.createObjectStore
-    dropStores: [],  // db.deleteObjectStore
-    indexes: [],     // store.createIndex
-    dropIndexes: [], // store.deleteIndex
-    version: version // version
-  };
-
-  return this;
-};
-
-/**
- * Add store.
- *
- * @param {String} name
- * @param {Object} [opts] { key: false }
- * @return {Schema}
- */
-
-Schema.prototype.addStore = function(name, opts) {
-  if (type(name) != 'string') throw new TypeError('`name` is required');
-  if (this._stores[name]) throw new TypeError('store is already defined');
-  var store = new Store(name, opts || {});
-  this._stores[name] = store;
-  this._versions[this.getVersion()].stores.push(store);
-  this._current.store = store;
-  return this;
-};
-
-/**
- * Drop store.
- *
- * @param {String} name
- * @return {Schema}
- */
-
-Schema.prototype.dropStore = function(name) {
-  if (type(name) != 'string') throw new TypeError('`name` is required');
-  var store = this._stores[name];
-  if (!store) throw new TypeError('store is not defined');
-  delete this._stores[name];
-  this._versions[this.getVersion()].dropStores.push(store);
-  return this;
-};
-
-/**
- * Add index.
- *
- * @param {String} name
- * @param {String|Array} field
- * @param {Object} [opts] { unique: false, multi: false }
- * @return {Schema}
- */
-
-Schema.prototype.addIndex = function(name, field, opts) {
-  if (type(name) != 'string') throw new TypeError('`name` is required');
-  if (type(field) != 'string' && type(field) != 'array') throw new TypeError('`field` is required');
-  var store = this._current.store;
-  if (store.indexes[name]) throw new TypeError('index is already defined');
-  var index = new Index(store, name, field, opts || {});
-  store.indexes[name] = index;
-  this._versions[this.getVersion()].indexes.push(index);
-  return this;
-};
-
-/**
- * Drop index.
- *
- * @param {String} name
- * @return {Schema}
- */
-
-Schema.prototype.dropIndex = function(name) {
-  if (type(name) != 'string') throw new TypeError('`name` is required');
-  var index = this._current.store.indexes[name];
-  if (!index) throw new TypeError('index is not defined');
-  delete this._current.store.indexes[name];
-  this._versions[this.getVersion()].dropIndexes.push(index);
-  return this;
-};
-
-/**
- * Change current store.
- *
- * @param {String} name
- * @return {Schema}
- */
-
-Schema.prototype.getStore = function(name) {
-  if (type(name) != 'string') throw new TypeError('`name` is required');
-  if (!this._stores[name]) throw new TypeError('store is not defined');
-  this._current.store = this._stores[name];
-  return this;
-};
-
-/**
- * Get version.
- *
- * @return {Number}
- */
-
-Schema.prototype.getVersion = function() {
-  return this._current.version;
-};
-
-/**
- * Generate onupgradeneeded callback.
- *
- * @return {Function}
- */
-
-Schema.prototype.callback = function() {
-  var versions = Object.keys(this._versions)
-    .map(function(v) { return this._versions[v] }, this)
-    .sort(function(a, b) { return a.version - b.version });
-
-  return function onupgradeneeded(e) {
-    var db = e.target.result;
-    var tr = e.target.transaction;
-
-    versions.forEach(function(versionSchema) {
-      if (e.oldVersion >= versionSchema.version) return;
-
-      versionSchema.stores.forEach(function(s) {
-        var options = {};
-
-        // Only pass the options that are explicitly specified to createObjectStore() otherwise IE/Edge
-        // can throw an InvalidAccessError - see https://msdn.microsoft.com/en-us/library/hh772493(v=vs.85).aspx
-        if (typeof s.key !== 'undefined') options.keyPath = s.key;
-        if (typeof s.increment !== 'undefined') options.autoIncrement = s.increment;
-
-        db.createObjectStore(s.name, options);
-      });
-
-      versionSchema.dropStores.forEach(function(s) {
-        db.deleteObjectStore(s.name);
-      });
-
-      versionSchema.indexes.forEach(function(i) {
-        var store = tr.objectStore(i.store.name);
-        store.createIndex(i.name, i.field, {
-          unique: i.unique,
-          multiEntry: i.multi
-        });
-      });
-
-      versionSchema.dropIndexes.forEach(function(i) {
-        var store = tr.objectStore(i.store.name);
-        store.deleteIndex(i.name);
-      });
-    });
-  };
-};
-});
-
-var require$$2$1 = (schema$1 && typeof schema$1 === 'object' && 'default' in schema$1 ? schema$1['default'] : schema$1);
-
-var index$1 = createCommonjsModule(function (module, exports) {
-var type = require$$2;
-var Schema = require$$2$1;
-var Store = require$$1;
-var Index = require$$0;
-
-/**
- * Expose `Treo`.
- */
-
-exports = module.exports = Treo;
-
-/**
- * Initialize new `Treo` instance.
- *
- * @param {String} name
- * @param {Schema} schema
- */
-
-function Treo(name, schema) {
-  if (!(this instanceof Treo)) return new Treo(name, schema);
-  if (type(name) != 'string') throw new TypeError('`name` required');
-  if (!(schema instanceof Schema)) throw new TypeError('not valid schema');
-
-  this.name = name;
-  this.status = 'close';
-  this.origin = null;
-  this.stores = schema._stores;
-  this.version = schema.getVersion();
-  this.onupgradeneeded = schema.callback();
-
-  // assign db property to each store
-  Object.keys(this.stores).forEach(function(storeName) {
-    this.stores[storeName].db = this;
-  }, this);
-}
-
-/**
- * Expose core classes.
- */
-
-exports.schema = Schema;
-exports.cmp = cmp;
-exports.Treo = Treo;
-exports.Schema = Schema;
-exports.Store = Store;
-exports.Index = Index;
-
-/**
- * Use plugin `fn`.
- *
- * @param {Function} fn
- * @return {Treo}
- */
-
-Treo.prototype.use = function(fn) {
-  fn(this, exports);
-  return this;
-};
-
-/**
- * Drop.
- *
- * @param {Function} cb
- */
-
-Treo.prototype.drop = function(cb) {
-  var name = this.name;
-  this.close(function(err) {
-    if (err) return cb(err);
-    var req = indexedDB().deleteDatabase(name);
-    req.onerror = cb;
-    req.onsuccess = function onsuccess() { cb() };
-  });
-};
-
-/**
- * Close.
- *
- * @param {Function} cb
- */
-
-Treo.prototype.close = function(cb) {
-  if (this.status == 'close') return cb();
-  this.getInstance(function(err, db) {
-    if (err) return cb(err);
-    db.origin = null;
-    db.status = 'close';
-    db.close();
-    cb();
-  });
-};
-
-/**
- * Get store by `name`.
- *
- * @param {String} name
- * @return {Store}
- */
-
-Treo.prototype.store = function(name) {
-  return this.stores[name];
-};
-
-/**
- * Get db instance. It starts opening transaction only once,
- * another requests will be scheduled to queue.
- *
- * @param {Function} cb
- */
-
-Treo.prototype.getInstance = function(cb) {
-  if (this.status == 'open') return cb(null, this.origin);
-  if (this.status == 'opening') return this.queue.push(cb);
-
-  this.status = 'opening';
-  this.queue = [cb]; // queue callbacks
-
-  var that = this;
-  var req = indexedDB().open(this.name, this.version);
-  req.onupgradeneeded = this.onupgradeneeded;
-
-  req.onerror = req.onblocked = function onerror(e) {
-    that.status = 'error';
-    that.queue.forEach(function(cb) { cb(e) });
-    delete that.queue;
-  };
-
-  req.onsuccess = function onsuccess(e) {
-    that.origin = e.target.result;
-    that.status = 'open';
-    that.origin.onversionchange = function onversionchange() {
-      that.close(function() {});
-    };
-    that.queue.forEach(function(cb) { cb(null, that.origin) });
-    delete that.queue;
-  };
-};
-
-/**
- * Create new transaction for selected `stores`.
- *
- * @param {String} type (readwrite|readonly)
- * @param {Array} stores - follow indexeddb semantic
- * @param {Function} cb
- */
-
-Treo.prototype.transaction = function(type, stores, cb) {
-  this.getInstance(function(err, db) {
-    err ? cb(err) : cb(null, db.transaction(stores, type));
-  });
-};
-
-/**
- * Compare 2 values using IndexedDB comparision algotihm.
- *
- * @param {Mixed} value1
- * @param {Mixed} value2
- * @return {Number} -1|0|1
- */
-
-function cmp() {
-  return indexedDB().cmp.apply(indexedDB(), arguments);
-}
-
-/**
- * Dynamic link to `global.indexedDB` for polyfills support.
- *
- * @return {IDBDatabase}
- */
-
-function indexedDB() {
-  return commonjsGlobal._indexedDB
-    || commonjsGlobal.indexedDB
-    || commonjsGlobal.msIndexedDB
-    || commonjsGlobal.mozIndexedDB
-    || commonjsGlobal.webkitIndexedDB;
-}
-});
-
-var loglevel = createCommonjsModule(function (module) {
-/*
-* loglevel - https://github.com/pimterry/loglevel
-*
-* Copyright (c) 2013 Tim Perry
-* Licensed under the MIT license.
-*/
-(function (root, definition) {
-    "use strict";
-    if (typeof define === 'function' && define.amd) {
-        define(definition);
-    } else if (typeof module === 'object' && module.exports) {
-        module.exports = definition();
-    } else {
-        root.log = definition();
-    }
-}(commonjsGlobal, function () {
-    "use strict";
-    var noop = function() {};
-    var undefinedType = "undefined";
-
-    function realMethod(methodName) {
-        if (typeof console === undefinedType) {
-            return false; // We can't build a real method without a console to log to
-        } else if (console[methodName] !== undefined) {
-            return bindMethod(console, methodName);
-        } else if (console.log !== undefined) {
-            return bindMethod(console, 'log');
-        } else {
-            return noop;
-        }
-    }
-
-    function bindMethod(obj, methodName) {
-        var method = obj[methodName];
-        if (typeof method.bind === 'function') {
-            return method.bind(obj);
-        } else {
-            try {
-                return Function.prototype.bind.call(method, obj);
-            } catch (e) {
-                // Missing bind shim or IE8 + Modernizr, fallback to wrapping
-                return function() {
-                    return Function.prototype.apply.apply(method, [obj, arguments]);
-                };
-            }
-        }
-    }
-
-    // these private functions always need `this` to be set properly
-
-    function enableLoggingWhenConsoleArrives(methodName, level, loggerName) {
-        return function () {
-            if (typeof console !== undefinedType) {
-                replaceLoggingMethods.call(this, level, loggerName);
-                this[methodName].apply(this, arguments);
-            }
-        };
-    }
-
-    function replaceLoggingMethods(level, loggerName) {
-        /*jshint validthis:true */
-        for (var i = 0; i < logMethods.length; i++) {
-            var methodName = logMethods[i];
-            this[methodName] = (i < level) ?
-                noop :
-                this.methodFactory(methodName, level, loggerName);
-        }
-    }
-
-    function defaultMethodFactory(methodName, level, loggerName) {
-        /*jshint validthis:true */
-        return realMethod(methodName) ||
-               enableLoggingWhenConsoleArrives.apply(this, arguments);
-    }
-
-    var logMethods = [
-        "trace",
-        "debug",
-        "info",
-        "warn",
-        "error"
-    ];
-
-    function Logger(name, defaultLevel, factory) {
-      var self = this;
-      var currentLevel;
-      var storageKey = "loglevel";
-      if (name) {
-        storageKey += ":" + name;
-      }
-
-      function persistLevelIfPossible(levelNum) {
-          var levelName = (logMethods[levelNum] || 'silent').toUpperCase();
-
-          // Use localStorage if available
-          try {
-              window.localStorage[storageKey] = levelName;
-              return;
-          } catch (ignore) {}
-
-          // Use session cookie as fallback
-          try {
-              window.document.cookie =
-                encodeURIComponent(storageKey) + "=" + levelName + ";";
-          } catch (ignore) {}
-      }
-
-      function getPersistedLevel() {
-          var storedLevel;
-
-          try {
-              storedLevel = window.localStorage[storageKey];
-          } catch (ignore) {}
-
-          if (typeof storedLevel === undefinedType) {
-              try {
-                  var cookie = window.document.cookie;
-                  var location = cookie.indexOf(
-                      encodeURIComponent(storageKey) + "=");
-                  if (location) {
-                      storedLevel = /^([^;]+)/.exec(cookie.slice(location))[1];
-                  }
-              } catch (ignore) {}
-          }
-
-          // If the stored level is not valid, treat it as if nothing was stored.
-          if (self.levels[storedLevel] === undefined) {
-              storedLevel = undefined;
-          }
-
-          return storedLevel;
-      }
-
-      /*
-       *
-       * Public API
-       *
-       */
-
-      self.levels = { "TRACE": 0, "DEBUG": 1, "INFO": 2, "WARN": 3,
-          "ERROR": 4, "SILENT": 5};
-
-      self.methodFactory = factory || defaultMethodFactory;
-
-      self.getLevel = function () {
-          return currentLevel;
-      };
-
-      self.setLevel = function (level, persist) {
-          if (typeof level === "string" && self.levels[level.toUpperCase()] !== undefined) {
-              level = self.levels[level.toUpperCase()];
-          }
-          if (typeof level === "number" && level >= 0 && level <= self.levels.SILENT) {
-              currentLevel = level;
-              if (persist !== false) {  // defaults to true
-                  persistLevelIfPossible(level);
-              }
-              replaceLoggingMethods.call(self, level, name);
-              if (typeof console === undefinedType && level < self.levels.SILENT) {
-                  return "No console available for logging";
-              }
-          } else {
-              throw "log.setLevel() called with invalid level: " + level;
-          }
-      };
-
-      self.setDefaultLevel = function (level) {
-          if (!getPersistedLevel()) {
-              self.setLevel(level, false);
-          }
-      };
-
-      self.enableAll = function(persist) {
-          self.setLevel(self.levels.TRACE, persist);
-      };
-
-      self.disableAll = function(persist) {
-          self.setLevel(self.levels.SILENT, persist);
-      };
-
-      // Initialize with the right level
-      var initialLevel = getPersistedLevel();
-      if (initialLevel == null) {
-          initialLevel = defaultLevel == null ? "WARN" : defaultLevel;
-      }
-      self.setLevel(initialLevel, false);
-    }
-
-    /*
-     *
-     * Package-level API
-     *
-     */
-
-    var defaultLogger = new Logger();
-
-    var _loggersByName = {};
-    defaultLogger.getLogger = function getLogger(name) {
-        if (typeof name !== "string" || name === "") {
-          throw new TypeError("You must supply a name when creating a logger.");
-        }
-
-        var logger = _loggersByName[name];
-        if (!logger) {
-          logger = _loggersByName[name] = new Logger(
-            name, defaultLogger.getLevel(), defaultLogger.methodFactory);
-        }
-        return logger;
-    };
-
-    // Grab the current global log variable in case of overwrite
-    var _log = (typeof window !== undefinedType) ? window.log : undefined;
-    defaultLogger.noConflict = function() {
-        if (typeof window !== undefinedType &&
-               window.log === defaultLogger) {
-            window.log = _log;
-        }
-
-        return defaultLogger;
-    };
-
-    return defaultLogger;
-}));
-});
-
-class SiftView {
-  constructor() {
-    this._resizeHandler = null;
-    this._proxy = parent;
-    this.controller = new Observable();
-    this._registerMessageListeners();
-  }
-
-  publish(topic, value) {
-   this._proxy.postMessage({
-      method: 'notifyController',
-      params: {
-        topic: topic,
-        value: value } },
-      '*');
-  }
-
-  registerOnLoadHandler(handler) {
-    window.addEventListener('load', handler);
-  }
-
-  // TODO: should we really limit resize events to every 1 second?
-  registerOnResizeHandler(handler, resizeTimeout = 1000) {
-    window.addEventListener('resize', () => {
-      if (!this.resizeHandler) {
-        this.resizeHandler = setTimeout(() => {
-          this.resizeHandler = null;
-          handler();
-        }, resizeTimeout);
-      }
-    });
-  }
-
-  _registerMessageListeners() {
-    window.addEventListener('message', (e) => {
-      let method = e.data.method;
-      let params = e.data.params;
-      if(method === 'notifyView') {
-        this.controller.publish(params.topic, params.value);
-      }
-      else if(this[method]) {
-        this[method](params);
-      }
-      else {
-        console.warn('[SiftView]: method not implemented: ', method);
-      }
-    }, false);
-  }
-}
-
-/**
- * SiftView
- */
-function registerSiftView(siftView) {
-  console.log('[Redsift::registerSiftView]: registered');
-}
-
 // Informed by the Cagatay Demiralp paper, grey is moved around to break
 // brown and red in this color scheme
 
@@ -4413,6 +5662,64 @@ const presentation10 = {
     lighter: presentation10light,
     names: names10    
 }
+
+const brandstd = [
+    '#e11010', // red
+    '#0ab93a', // green
+    '#1671f4', // blue
+    '#cacaca'  // grey
+]
+
+const branddark = [
+    '#6a0000', // red
+    '#087927', // green
+    '#0b49a2', // blue
+    '#828282'  // grey
+]
+
+const namesbrand = {
+    red:    0,
+    green:  1,
+    blue:   2,        
+    grey:   3
+}
+
+const brand = { 
+    standard: brandstd, 
+    darker: branddark,
+    names: namesbrand 
+} 
+
+const display = { 
+    light : {
+        background: '#ffffff',
+        text: '#262626',
+        axis: '#262626',
+        grid: '#e0e0e0',
+        highlight: 'rgba(225,16,16,0.5)',
+        lowlight: 'rgba(127,127,127,0.3)',
+        shadow: 'rgba(127,127,127,0.4)',
+        fillOpacity: 0.33,
+        negative: {
+            background: 'rgba(0, 0, 0, 0.66)',
+            text: '#ffffff'
+        }
+    },
+    dark : {
+        background: '#333333',    
+        text: '#ffffff',
+        axis: '#ffffff',
+        grid: '#6d6d6d',
+        highlight: 'rgba(225,16,16,0.5)',
+        lowlight: 'rgba(127,127,127,0.5)',
+        shadow: 'rgba(255,255,255,0.4)',
+        fillOpacity: 0.33,      
+        negative: {
+            background: 'rgba(255, 255, 255, 0.85)',
+            text: '#262626'
+        }
+    }
+};
 
 var index$5 = createCommonjsModule(function (module) {
 /**
@@ -4521,13 +5828,785 @@ module.exports = function bezier (mX1, mY1, mX2, mY2) {
 };
 });
 
+let COUNT = 1;
+
+function scaffold(id, onetime, dynamic, transitions) {
+    function _impl(context) {
+        let selection = context.selection ? context.selection() : context,
+            transition = (context.selection !== undefined);
+
+        let defs = selection.select('defs');
+        if (defs.empty()) {
+            defs = selection.append('defs');
+        }
+        
+        let filter = defs.select(_impl.self());
+        if (filter.empty()) {
+            filter = defs.append('filter')
+                        .attr('filterUnits', 'objectBoundingBox')
+                        .attr('x', '0%')
+                        .attr('y', '0%')
+                        .attr('width', '100%')
+                        .attr('height', '100%')
+                        .attr('id', id);
+
+            onetime(filter);
+        }        
+        
+        dynamic(filter);
+
+        if (transition === true) {
+            filter = filter.transition(context);
+        }
+        
+        transitions(filter);
+    }
+
+    _impl.id = () => id;
+    _impl.self = () => `#${id}`;
+    
+    // .url() can be used with filter on a SVG component
+    _impl.url = () => `url(#${id})`;
+    
+    // .css() can be used with style on a SVG component
+    _impl.css = () => `fill: ${_impl.url()};`;
+
+    return _impl;
+}
+
+function shadow(id) {
+    
+    let morphRadius = 1,
+        color = display.light.shadow,
+        blurRadius = 3,
+        padding = "10";
+    
+    if (id == null) {
+        id = 'filter-shadow-' + COUNT;
+        COUNT++;
+    }
+    
+    let _impl = scaffold(id, 
+    function onetime(filter) {
+        filter.append('feMorphology')
+            .attr('operator', 'dilate')
+            .attr('in', 'SourceAlpha')
+            .attr('result', 'TEMPLATE');
+
+        filter.append('feFlood')
+                .attr('result', 'COLOUR');
+
+        filter.append('feComposite')
+            .attr('in', 'COLOUR')
+            .attr('in2', 'TEMPLATE')
+            .attr('operator', 'in')
+            .attr('result', 'TEMPLATE_COLOUR');
+
+        filter.append('feGaussianBlur')
+            .attr('result', 'BG');
+        
+        let merge = filter.append('feMerge');
+        merge.append('feMergeNode').attr('in', 'BG');
+        merge.append('feMergeNode').attr('in', 'SourceGraphic');
+    },
+    function dynamic(filter) {
+        filter
+            .attr('x', '-' + padding + '%')
+            .attr('y', '-' + padding + '%')
+            .attr('width', (2*padding + 100) + '%')
+            .attr('height', (2*padding + 100) + '%');
+    },
+    function transition(filter) {
+        filter.select('feMorphology')    
+            .attr('radius', morphRadius);
+
+        filter.select('feFlood')    
+            .attr('flood-color', color)
+
+        filter.select('feGaussianBlur')
+            .attr('stdDeviation', blurRadius);
+    });
+
+    
+    _impl.morphRadius = function(value) {
+        return arguments.length ? (morphRadius = value, _impl) : morphRadius;
+    };
+    
+    _impl.color = function(value) {
+        return arguments.length ? (color = value, _impl) : color;
+    };
+    
+    _impl.blurRadius = function(value) {
+        return arguments.length ? (blurRadius = value, _impl) : blurRadius;
+    };
+    
+    _impl.padding = function(value) {
+        return arguments.length ? (padding = value, _impl) : padding;
+    };                  
+
+    return _impl;
+}
+
+function greyscale(id) { 
+    let strength = 1.0;
+
+    if (id == null) {
+        id = 'filter-greyscale-' + COUNT;
+        COUNT++;
+    }
+
+    let _impl = scaffold(id, 
+    function onetime(filter) {
+        filter.append('feColorMatrix')
+                .attr('type', 'matrix');
+    },
+    function dynamic() {
+
+    },
+    function transition(filter) {
+        const s = (1.0 / 3.0);
+
+        let o = s * strength;
+        let d = 1.0 - 2*o;
+
+        filter.select('feColorMatrix')
+                .attr('values', `${d} ${o} ${o} 0 0 ` +
+                                `${o} ${d} ${o} 0 0 ` +
+                                `${o} ${o} ${d} 0 0 ` +
+                                `0 0 0 1 0`);
+    });
+
+    _impl.strength = function(v) { 
+        return arguments.length ? (strength = v, _impl) : strength; 
+    }
+
+    return _impl;
+}
+
+function emboss(id) { 
+    let color = brand.standard[brand.names.grey],
+        blur = 0.6,
+        strength = 0.8;
+
+    if (id == null) {
+        id = 'filter-emboss-' + COUNT;
+        COUNT++;
+    }
+
+    let _impl = scaffold(id, 
+    function onetime(filter) {
+        filter.append('feColorMatrix')
+                .attr('type', 'matrix')
+                .attr('values', `0.3333 0.3333 0.3333 0 0 ` +
+                                `0.3333 0.3333 0.3333 0 0 ` +
+                                `0.3333 0.3333 0.3333 0 0 ` +
+                                `0 0 0 1 0`);
+        
+        let transfer = filter.append('feComponentTransfer');
+        [ 'feFuncR', 'feFuncG', 'feFuncB' ].forEach(function (ch) {
+            transfer.append(ch)
+                    .attr('type', 'discrete')
+                    .attr('tableValues', `0.0 0.18 0.75 1.0`);
+        });
+    
+        filter.append('feGaussianBlur')
+                .attr('stdDeviation', blur);
+
+        filter.append('feComponentTransfer')
+                .attr('result', 'TRANSFER')
+                .append('feFuncA')
+                    .attr('type', 'discrete');
+
+        filter.append('feFlood')
+                .attr('rect', '')
+                .attr('x', '0%')
+                .attr('y', '0%')
+                .attr('width', '100%')
+                .attr('height', '100%')
+                .attr('result', 'FILL');
+
+        filter.append('feBlend')
+                .attr('in', 'TRANSFER')
+                .attr('in2', 'FILL')
+                .attr('mode', 'multiply');
+    },
+    function dynamic() {
+
+    },
+    function transition(filter) {
+        filter.select('feFlood').attr('flood-color', color);
+        filter.select('feFuncA').attr('tableValues', `0.0 ${strength}`);
+    });
+
+    _impl.color = function(v) { 
+        return arguments.length ? (color = v, _impl) : color; 
+    }
+
+    _impl.strength = function(v) { 
+        return arguments.length ? (strength = v, _impl) : strength; 
+    }
+
+    return _impl;
+}
+
+const widths = {
+    outline: 0.5,
+    data: 2.5,
+    axis: 1.0,
+    grid: 2.0
+}
+
+// Fallback here chooses system fonts first
+const systemFontFallback = `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"`;
+
+function sizeForWidth(width) {
+    if (width < 414) {
+        return '12px';
+    }
+    return '14px';
+}
+
+const fonts = {
+    fixed: {
+        cssImport: "@import url(https://fonts.googleapis.com/css?family=Source+Code+Pro:300,500);",
+        weightMonochrome: 300,
+        weightColor: 500,
+        sizeForWidth: sizeForWidth,
+        family: `"Source Code Pro", Consolas, "Liberation Mono", Menlo, Courier, monospace` // Font fallback chosen to keep presentation on places like GitHub where Content Security Policy prevents inline SRC
+    },
+    variable: {
+        cssImport: "@import url(https://fonts.googleapis.com/css?family=Raleway:400,500);",
+        weightMonochrome: 400,
+        weightColor: 500,
+        sizeForWidth: sizeForWidth,
+        family: `"Raleway", "Trebuchet MS", ${systemFontFallback}`
+    },
+    brand: {
+        cssImport: "@import url(https://fonts.googleapis.com/css?family=Electrolize);",
+        weightMonochrome: 400,
+        weightColor: 400,
+        sizeForWidth: sizeForWidth,
+        family: `"Electrolize", ${systemFontFallback}`
+    }
+}
+
+function svg(id) {
+  
+  let width = 300,
+      height = 150,
+      top = 16,
+      right = 16,
+      bottom = 16,
+      left = 16,
+      scale = 1,
+      inner = 'g.svg-child',
+      innerWidth = -1,
+      innerHeight = -1,
+      style = null,
+      background = null,
+      title = null,
+      desc = null,
+      role = 'img',
+      classed = 'svg-svg';
+
+  function _updateInnerWidth() {
+      innerWidth = width - left - right;
+  }    
+  
+  function _updateInnerHeight() {
+      innerHeight = height - top - bottom;
+  }   
+  
+  _updateInnerWidth();
+  _updateInnerHeight();
+        
+  function _impl(context) {
+    let selection = context.selection ? context.selection() : context,
+        transition = (context.selection !== undefined);
+
+    selection.each(function() {
+      let parent = select(this);
+
+      let el = parent.select(_impl.self());
+      if (el.empty()) {
+        let ariaTitle = (id == null ? '' : id + '-') + 'title';
+        let ariaDesc = (id == null ? '' : id + '-') + 'desc';   
+        el = parent.append('svg')
+                    .attr('version', '1.1')
+                    .attr('xmlns', 'http://www.w3.org/2000/svg')
+                    .attr('xmlns:xlink', 'http://www.w3.org/1999/xlink') // d3 work around for xlink not required as per D3 4.0
+                    .attr('preserveAspectRatio', 'xMidYMid meet')
+                    .attr('aria-labelledby', ariaTitle)
+                    .attr('aria-describedby', ariaDesc)
+                    .attr('id', id);
+                    
+        el.append('title').attr('id', ariaTitle);        
+        el.append('desc').attr('id', ariaDesc);      
+        el.append('defs');
+        el.append('rect').attr('class', 'background');
+        el.append('g').attr('class', 'svg-child');
+      }
+      
+      let defsEl = el.select('defs');
+      
+      let styleEl = defsEl.selectAll('style').data(style ? [ style ] : []);
+      styleEl.exit().remove();
+      styleEl = styleEl.enter().append('style').attr('type', 'text/css').merge(styleEl);
+      styleEl.text(style);
+      
+      el.attr('role', role);
+      
+      el.select('title').text(title);
+      el.select('desc').text(desc);
+            
+      let rect = el.select('rect.background')
+                  .attr('width', background != null ? width * scale : null)
+                  .attr('height', background != null ? height * scale : null);      
+            
+      // Never transition
+      el.attr('class', classed)
+
+      let g = el.select(_impl.child());
+            
+      if (transition === true) {
+        el = el.transition(context);
+        g = g.transition(context);
+        rect = rect.transition(context);
+      }     
+
+      // Transition if enabled
+      el.attr('width', width * scale)
+        .attr('height', height * scale)
+        .attr('viewBox', '0 0 ' + width + ' ' + height);
+    
+      g.attr('transform', 'translate(' + left + ',' + top + ')');
+
+      rect.attr('fill', background);
+
+    });
+  }
+
+  _impl.self = function() { return 'svg' + (id ?  '#' + id : ''); }
+  _impl.child = function() { return inner; }
+  _impl.childDefs = function() { return 'defs'; }
+  _impl.childWidth = function() { return innerWidth; }
+  _impl.childHeight = function() { return innerHeight; }
+
+  _impl.id = function() {
+    return id;
+  };
+    
+  _impl.classed = function(value) {
+    return arguments.length ? (classed = value, _impl) : classed;
+  };
+
+  _impl.style = function(value) {
+    return arguments.length ? (style = value, _impl) : style;
+  };
+
+  _impl.background = function(value) {
+    return arguments.length ? (background = value, _impl) : background;
+  };
+    
+  _impl.width = function(value) {
+    if (!arguments.length) return width;
+    width = value;
+    _updateInnerWidth();
+    return _impl;
+  };
+
+  _impl.height = function(value) {
+    if (!arguments.length) return width;
+    height = value;
+    _updateInnerHeight();
+    return _impl;
+  };
+  
+  _impl.scale = function(value) {
+    return arguments.length ? (scale = value, _impl) : scale;
+  };
+
+  _impl.title = function(value) {
+    return arguments.length ? (title = value, _impl) : title;
+  };  
+
+  _impl.desc = function(value) {
+    return arguments.length ? (desc = value, _impl) : desc;
+  };   
+  
+  _impl.role = function(value) {
+    return arguments.length ? (role = value, _impl) : role;
+  };  
+   
+  _impl.margin = function(value) {
+    if (!arguments.length) return {
+      top: top,
+      right: right,
+      bottom: bottom,
+      left: left
+    };
+    if (value.top !== undefined) {
+      top = value.top;
+      right = value.right;
+      bottom = value.bottom;
+      left = value.left; 
+    } else {
+      top = value;
+      right = value;
+      bottom = value;
+      left = value;
+    }     
+    _updateInnerWidth();
+    _updateInnerHeight();
+    return _impl;
+  };
+    
+  return _impl;
+}
+
+const DEFAULT_SIZE = 960;
+const DEFAULT_ASPECT = 1060 / 960;
+const DEFAULT_MARGIN = 26;  // white space
+
+const filtersMap = {
+  'shadow': shadow,
+  'emboss': emboss,
+  'greyscale': greyscale
+}
+
+function chart(id) {
+  let classed = 'chart-treemap',
+      theme = 'light',
+      background = undefined,
+      width = DEFAULT_SIZE,
+      height = null,
+      margin = DEFAULT_MARGIN,
+      style = undefined,
+      scale = 1.0,
+      fill = null,
+      appendText = null,
+      textValue = null,
+      appendImage = null,
+      imageLink = null,
+      imageFallbackLink = null,
+      filter = null;
+
+   function _makeFillFn(onlyArray) {
+    let colors_array = [];
+    if(fill == null){
+      colors_array = presentation10.lighter
+    }else if (Array.isArray(fill)){
+      colors_array = fill
+    }else{
+      colors_array.push(fill)
+    }
+
+    let t = ordinal(colors_array)
+    let colors_fn = d => t(d);
+    if(typeof fill === 'function'){
+      colors_fn = fill;
+    }
+    return onlyArray ? colors_array : colors_fn
+   }
+
+  function checkImage(imageSrc, good, bad) {
+    var img = new Image();
+    img.onload = good;
+    img.onerror = bad;
+    img.src = imageSrc;
+  }
+
+  function _impl(context) {
+    let selection = context.selection ? context.selection() : context,
+        transition = (context.selection !== undefined);
+
+    let _background = background;
+    if (_background === undefined) {
+      _background = display[theme].background;
+    }
+      
+    selection.each(function() {
+      let node = select(this);
+      let sh = height || Math.round(width * DEFAULT_ASPECT);
+      
+      // SVG element
+      let sid = null;
+      if (id) sid = 'svg-' + id;
+      let root = svg(sid).width(width).height(sh).margin(margin).scale(scale).background(_background);
+      let tnode = node;
+      if (transition === true) {
+        tnode = node.transition(context);
+      }
+      tnode.call(root);
+      
+      let snode = node.select(root.self());
+      let rootG = snode.select(root.child());
+
+      let g = rootG.select(_impl.self());
+      if (g.empty()) {
+        g = rootG.append('g').attr('class', classed).attr('id', id);
+      }
+
+      let data = g.datum() || [];
+      
+      let _w = width - 2*margin
+      let _h = sh - 2*margin
+      let treeMap = treemap()
+      .size([_w, _h])
+      .round(true);
+
+      var hr = hierarchy(data)
+        .sum(d => d.v)
+
+      treeMap(hr);
+
+
+      let colors = _makeFillFn();
+      // let w = this._div.node().offsetWidth;
+      // let h = select('#home').node().offsetHeight;
+
+      let ff = d => d.children ? _background : colors(d.data.l)
+
+      let nodes = g.selectAll('g.node').data(hr.leaves(), d => d.data.l)
+      let nodesExit = nodes.exit()
+
+      let nodesEntering = nodes.enter()
+        .append('g')
+          .attr('class', 'node')
+          .attr('id', d => d.data.l)
+          .attr('transform', d => `translate(${d.x0},${d.y0})`)
+      
+      nodesEntering.append('rect')
+
+      if(appendText){
+        nodesEntering.append('text')
+           .attr('class', 'node-text')
+      }
+
+      let _imageId = (d,i) => `image-${i}-${d.data.l ? d.data.l.slice(0,1) : ''}`
+      if(appendImage){
+        nodesEntering.append('image')
+          .attr('id', _imageId)
+      }
+
+      let nodesEU = nodesEntering.merge(nodes)
+
+    
+      if(transition){
+        nodesEU = nodesEU.transition(context)
+        nodesExit = nodesExit.transition(context)
+      }
+
+      nodesEU.attr('transform', d => `translate(${d.x0},${d.y0})`)
+      nodesExit.select('rect')
+        .attr('x', d => d.x1)
+        .attr('y', d => d.y1)
+        .attr('width', d =>d.x0)
+        .attr('height', d=> d.y0)
+
+      nodesExit.selectAll('image').attr('xlink:href','')
+      nodesExit.remove()
+
+      nodesEU.select('rect')
+          .attr('width', d => d.x1 - d.x0)
+          .attr('height', d => d.y1 - d.y0)
+          .attr('fill', ff)
+
+      if(appendText){
+        let _text = () => textValue
+        if(textValue === null){
+          _text = d => d.data.v
+        } 
+        nodesEU.select('text')
+            .attr('transform', d => `translate(${(d.x1-d.x0)/2 },${(d.y1-d.y0)/2})`)
+            .style('font-size', d => {
+              let _w = d.x1-d.x0
+              return (_w < 5 ? '10' : _w < 20 ? '15' : '20' ) + 'px'
+            })
+            .text(_text)
+      }
+
+      if(appendImage){
+        let _link = () => imageLink
+        if(imageLink === null){
+          _link = d => d.data.u
+        }
+        // doing some calculations to better position the image
+        let _maxSize = 400;
+        let w = d => d.x1 - d.x0
+        let h = d => d.y1 - d.y0
+        let _imgD = d => {
+          let i=0
+          let r = _maxSize
+          const c = Math.min(w(d), h(d))
+          while(r >= c){
+            r = _maxSize/Math.pow(2,i)
+            i++
+          } 
+          return r;
+        }
+
+        let _filterLookupFn = ()=>{};
+        if(filter && filtersMap.hasOwnProperty(filter)){
+          let createFilter = (c) => {
+            let fid = `filter-${filter}`;
+            if (id) fid = `${fid}-${id}-${c ? c.slice(1) : ''}`;
+            let e = filtersMap[filter](fid).strength(1.0)
+            if(c){
+              e.color(c)
+            }
+            return e;
+          }
+          if(filter === 'emboss'){
+            // generate filters for all the colours
+            let filterLookup = {}
+            let filtersForColors = _makeFillFn(true).map(c => {
+              var f = createFilter(c)
+              filterLookup[c] = f.url();
+              return f;
+            })
+            _filterLookupFn = d => filterLookup[colors(d.data.l)]
+            filtersForColors.forEach(f => snode.call(f))
+          }else{
+            let f = createFilter();
+            _filterLookupFn = () => f.url()
+            snode.call(f)
+          }
+        }
+        let findImageFn = (d,i) =>{
+          if(!_link(d)){
+            return '';
+          }
+          if(imageFallbackLink){
+            checkImage(
+              _link(d), 
+              ()=>{
+                g.select(`image#${_imageId(d,i)}`).attr('xlink:href', _link(d))
+              },
+              ()=>{
+                g.select(`image#${_imageId(d,i)}`).attr('xlink:href', imageFallbackLink)
+              })
+          }
+          return _link(d)
+        } 
+        nodesEU.select('image')
+            .attr('x', d => Math.round(w(d)/2 - _imgD(d)/2))
+            .attr('y', d => Math.round(h(d)/2 - _imgD(d)/2))
+            .attr('width', _imgD)
+            .attr('height', _imgD)
+            .attr('filter', _filterLookupFn)
+            .attr('xlink:href', findImageFn)
+
+        nodesEU.on('end', findImageFn)
+      }
+
+      let _style = style;
+      if (_style == null) {
+        _style = _impl.defaultStyle();
+      }
+
+      var defsEl = snode.select('defs');
+      var styleEl = defsEl.selectAll('style').data(_style ? [ _style ] : []);
+      styleEl.exit().remove();
+      styleEl = styleEl.enter().append('style').attr('type', 'text/css').merge(styleEl);
+      styleEl.text(_style);
+    })
+  }
+
+  _impl.self = function() { return 'g' + (id ?  '#' + id : '.' + classed); };
+
+  _impl.id = function() { return id; };
+
+  _impl.defaultStyle = () => `
+                  ${fonts.variable.cssImport}
+                  ${fonts.fixed.cssImport}  
+
+                  ${_impl.self()} text { 
+                                        font-family: ${fonts.fixed.family};
+                                        font-size: ${fonts.fixed.sizeForWidth(width)};
+                                        font-weight: ${fonts.fixed.weightMonochrome}; 
+                                        fill: ${display[theme].text}; 
+                                      }
+                  ${_impl.self()} .node-text { 
+                                        text-anchor: middle;
+                                      }
+                  ${_impl.self()} .node {
+                                        stroke: ${display[theme].background};
+                                        stroke-width: ${widths.grid};
+                  }
+                `;
+
+  _impl.classed = function(_) {
+    return arguments.length ? (classed = _, _impl) : classed;
+  };
+
+  _impl.background = function(_) {
+    return arguments.length ? (background = _, _impl) : background;
+  };
+
+  _impl.width = function(_) {
+    return arguments.length ? (width = _, _impl) : width;
+  };
+
+  _impl.height = function(_) {
+    return arguments.length ? (height = _, _impl) : height;
+  }; 
+
+  _impl.scale = function(_) {
+    return arguments.length ? (scale = _, _impl) : scale;
+  }; 
+
+  _impl.margin = function(_) {
+    return arguments.length ? (margin = _, _impl) : margin;
+  };
+
+  _impl.theme = function(_) {
+    return arguments.length ? (theme = _, _impl) : theme;
+  };
+
+  _impl.fill = function(_) {
+    return arguments.length ? (fill = _, _impl) : fill;
+  };
+
+  _impl.appendText = function(_) {
+    return arguments.length ? (appendText = _, _impl) : appendText;
+  };
+
+  _impl.textValue = function(_) {
+    return arguments.length ? (textValue = _, _impl) : textValue;
+  };
+
+  _impl.appendImage = function(_) {
+    return arguments.length ? (appendImage = _, _impl) : appendImage;
+  };
+
+  _impl.imageLink = function(_) {
+    return arguments.length ? (imageLink = _, _impl) : imageLink;
+  };
+
+  _impl.imageFallbackLink = function(_) {
+    return arguments.length ? (imageFallbackLink = _, _impl) : imageFallbackLink;
+  };
+
+  _impl.filter = function(_) {
+    return arguments.length ? (filter = _, _impl) : filter;
+  };
+
+  return _impl;
+}
+
 class SummaryView extends SiftView {
   constructor() {
     // You have to call the super() method to initialize the base class.
     super();
 
     // Stores the currently displayed data so view can be reflown during transitions
-    this._div = select('.treemap');
+    this._div = '#treemap';
+    this._treemap = chart('pixel-tracker')
+      .appendImage(true)
+      .imageFallbackLink('assets/fa-eye@3x.png')
+      .filter('emboss')
+    this.firstTime = true;
 
 
     // Subscribe to 'calendarupdated' updates from the Controller
@@ -4541,53 +6620,39 @@ class SummaryView extends SiftView {
   }
 
   _updateGraph(data){
+    console.log('updating graph')
     // console.log('updateGraph:', data);
-    let treeMap = treemap()
-    .size([100, 100])
-    .round(true);
 
-    var hr = hierarchy(data)
-      .sum(d => d.count)
+    // let getLabel = d => {
+    //   return d.data.name === 'no-trackers-found' || d.children
+    //   ? null
+    //   : d.data.name + (d.data.count ? ' (' + d.data.count + ')' : '')
+    // };
 
-    treeMap(hr);
+ 
+    let w = select(this._div).node().offsetWidth;
+    let h = select('#home').node().offsetHeight;
 
-    let getLabel = d => {
-      return d.data.name === 'no-trackers-found' || d.children
-      ? null
-      : d.data.name + (d.data.count ? ' (' + d.data.count + ')' : '')
-    };
+    let container = select(this._div).datum(data)
+    if(this.firstTime){
+      this.firstTime = false;
+      container.call(this._treemap.width(w).height(h));
+    }else{
+      container.transition()
+        .delay(data.children.length / 10 * 800)
+        .duration(750)
+        .call(this._treemap.width(w).height(h))
+    }
 
-    let scale = ordinal(presentation10.lighter);
-
-    this._div
-      .selectAll('.node')
-      .data(hr.leaves())
-      .enter().append('div')
-        .attr('class', 'node')
-        .attr('title', getLabel)
-        .style('left', d => d.x0 + '%')
-        .style('top', d => d.y0 + '%')
-        .style('width', d => d.x1 - d.x0 + '%')
-        .style('height', d => d.y1 - d.y0 + '%')
-        .style('font-size', d => (d.x1 < 10 ? '10' : d.x1 < 20 ? '15' : '20' ) + 'px')
-        .style('background', d => d.name === 'no-trackers-found' || d.children ? 'white' : scale(getLabel(d)))
-      .append('div')
-        .attr('class', 'node-child')
-        .style('background-image', d => {
-          return d.name === 'no-trackers-found' || d.children ? null
-            : d.data.id ? `url("https://logo.clearbit.com/${d.data.id}?&size=200")`
-            : `url("assets/fa-eye.png")`;
-        })
-        .style('background-size', d => d.data.id ? 'contain' : 'initial')
   }
 
   onGraphUpdated(g){
-     console.log('sift-pixel-tracker: graph', g);
+    console.log('sift-pixel-tracker: onGraphUpdated', g);
     this._updateGraph(g);
   }
 
   presentView(value){
-    console.log('sift-pixel-tracker: presentView: ', value);
+    console.log('sift-pixel-tracker: presentView: ');
     this._updateGraph(value.data.graph);
   }
   willPresentView(value){

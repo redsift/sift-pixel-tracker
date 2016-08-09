@@ -107,26 +107,26 @@
     var SiftStorage = (function (Observable) {
       function SiftStorage() {
         Observable.call(this);
-        this._treo = null;
+        this._storage = null;
       }
 
       if ( Observable ) SiftStorage.__proto__ = Observable;
       SiftStorage.prototype = Object.create( Observable && Observable.prototype );
       SiftStorage.prototype.constructor = SiftStorage;
 
-      SiftStorage.prototype.init = function init (treo) {
-        this._treo = treo;
+      SiftStorage.prototype.init = function init (storage) {
+        this._storage = storage;
       };
 
-      SiftStorage.prototype.get = function get (d){ return this._treo.get(d)};
-      SiftStorage.prototype.getIndexKeys = function getIndexKeys (d){ return this._treo.getIndexKeys(d)};
-      SiftStorage.prototype.getIndex = function getIndex (d){ return this._treo.getIndex(d)};
-      SiftStorage.prototype.getWithIndex = function getWithIndex (d){ return this._treo.getWithIndex(d)};
-      SiftStorage.prototype.getAllKeys = function getAllKeys (d){ return this._treo.getAllKeys(d)};
-      SiftStorage.prototype.getAll = function getAll (d){ return this._treo.getAll(d)};
-      SiftStorage.prototype.getUser = function getUser (d){ return this._treo.getUser(d)};
-      SiftStorage.prototype.putUser = function putUser (d){ return this._treo.putUser(d)};
-      SiftStorage.prototype.delUser = function delUser (d){ return this._treo.delUser(d)};
+      SiftStorage.prototype.get = function get (d) { return this._storage.get(d) };
+      SiftStorage.prototype.getIndexKeys = function getIndexKeys (d) { return this._storage.getIndexKeys(d) };
+      SiftStorage.prototype.getIndex = function getIndex (d) { return this._storage.getIndex(d) };
+      SiftStorage.prototype.getWithIndex = function getWithIndex (d) { return this._storage.getWithIndex(d) };
+      SiftStorage.prototype.getAllKeys = function getAllKeys (d) { return this._storage.getAllKeys(d) };
+      SiftStorage.prototype.getAll = function getAll (d) { return this._storage.getAll(d) };
+      SiftStorage.prototype.getUser = function getUser (d) { return this._storage.getUser(d) };
+      SiftStorage.prototype.putUser = function putUser (d) { return this._storage.putUser(d) };
+      SiftStorage.prototype.delUser = function delUser (d) { return this._storage.delUser(d) };
 
       return SiftStorage;
     }(Observable));
@@ -136,6 +136,236 @@
     function createCommonjsModule(fn, module) {
     	return module = { exports: {} }, fn(module, module.exports), module.exports;
     }
+
+    var loglevel = createCommonjsModule(function (module) {
+    /*
+    * loglevel - https://github.com/pimterry/loglevel
+    *
+    * Copyright (c) 2013 Tim Perry
+    * Licensed under the MIT license.
+    */
+    (function (root, definition) {
+        "use strict";
+        if (typeof define === 'function' && define.amd) {
+            define(definition);
+        } else if (typeof module === 'object' && module.exports) {
+            module.exports = definition();
+        } else {
+            root.log = definition();
+        }
+    }(commonjsGlobal, function () {
+        "use strict";
+        var noop = function() {};
+        var undefinedType = "undefined";
+
+        function realMethod(methodName) {
+            if (typeof console === undefinedType) {
+                return false; // We can't build a real method without a console to log to
+            } else if (console[methodName] !== undefined) {
+                return bindMethod(console, methodName);
+            } else if (console.log !== undefined) {
+                return bindMethod(console, 'log');
+            } else {
+                return noop;
+            }
+        }
+
+        function bindMethod(obj, methodName) {
+            var method = obj[methodName];
+            if (typeof method.bind === 'function') {
+                return method.bind(obj);
+            } else {
+                try {
+                    return Function.prototype.bind.call(method, obj);
+                } catch (e) {
+                    // Missing bind shim or IE8 + Modernizr, fallback to wrapping
+                    return function() {
+                        return Function.prototype.apply.apply(method, [obj, arguments]);
+                    };
+                }
+            }
+        }
+
+        // these private functions always need `this` to be set properly
+
+        function enableLoggingWhenConsoleArrives(methodName, level, loggerName) {
+            return function () {
+                if (typeof console !== undefinedType) {
+                    replaceLoggingMethods.call(this, level, loggerName);
+                    this[methodName].apply(this, arguments);
+                }
+            };
+        }
+
+        function replaceLoggingMethods(level, loggerName) {
+            var this$1 = this;
+
+            /*jshint validthis:true */
+            for (var i = 0; i < logMethods.length; i++) {
+                var methodName = logMethods[i];
+                this$1[methodName] = (i < level) ?
+                    noop :
+                    this$1.methodFactory(methodName, level, loggerName);
+            }
+        }
+
+        function defaultMethodFactory(methodName, level, loggerName) {
+            /*jshint validthis:true */
+            return realMethod(methodName) ||
+                   enableLoggingWhenConsoleArrives.apply(this, arguments);
+        }
+
+        var logMethods = [
+            "trace",
+            "debug",
+            "info",
+            "warn",
+            "error"
+        ];
+
+        function Logger(name, defaultLevel, factory) {
+          var self = this;
+          var currentLevel;
+          var storageKey = "loglevel";
+          if (name) {
+            storageKey += ":" + name;
+          }
+
+          function persistLevelIfPossible(levelNum) {
+              var levelName = (logMethods[levelNum] || 'silent').toUpperCase();
+
+              // Use localStorage if available
+              try {
+                  window.localStorage[storageKey] = levelName;
+                  return;
+              } catch (ignore) {}
+
+              // Use session cookie as fallback
+              try {
+                  window.document.cookie =
+                    encodeURIComponent(storageKey) + "=" + levelName + ";";
+              } catch (ignore) {}
+          }
+
+          function getPersistedLevel() {
+              var storedLevel;
+
+              try {
+                  storedLevel = window.localStorage[storageKey];
+              } catch (ignore) {}
+
+              if (typeof storedLevel === undefinedType) {
+                  try {
+                      var cookie = window.document.cookie;
+                      var location = cookie.indexOf(
+                          encodeURIComponent(storageKey) + "=");
+                      if (location) {
+                          storedLevel = /^([^;]+)/.exec(cookie.slice(location))[1];
+                      }
+                  } catch (ignore) {}
+              }
+
+              // If the stored level is not valid, treat it as if nothing was stored.
+              if (self.levels[storedLevel] === undefined) {
+                  storedLevel = undefined;
+              }
+
+              return storedLevel;
+          }
+
+          /*
+           *
+           * Public API
+           *
+           */
+
+          self.levels = { "TRACE": 0, "DEBUG": 1, "INFO": 2, "WARN": 3,
+              "ERROR": 4, "SILENT": 5};
+
+          self.methodFactory = factory || defaultMethodFactory;
+
+          self.getLevel = function () {
+              return currentLevel;
+          };
+
+          self.setLevel = function (level, persist) {
+              if (typeof level === "string" && self.levels[level.toUpperCase()] !== undefined) {
+                  level = self.levels[level.toUpperCase()];
+              }
+              if (typeof level === "number" && level >= 0 && level <= self.levels.SILENT) {
+                  currentLevel = level;
+                  if (persist !== false) {  // defaults to true
+                      persistLevelIfPossible(level);
+                  }
+                  replaceLoggingMethods.call(self, level, name);
+                  if (typeof console === undefinedType && level < self.levels.SILENT) {
+                      return "No console available for logging";
+                  }
+              } else {
+                  throw "log.setLevel() called with invalid level: " + level;
+              }
+          };
+
+          self.setDefaultLevel = function (level) {
+              if (!getPersistedLevel()) {
+                  self.setLevel(level, false);
+              }
+          };
+
+          self.enableAll = function(persist) {
+              self.setLevel(self.levels.TRACE, persist);
+          };
+
+          self.disableAll = function(persist) {
+              self.setLevel(self.levels.SILENT, persist);
+          };
+
+          // Initialize with the right level
+          var initialLevel = getPersistedLevel();
+          if (initialLevel == null) {
+              initialLevel = defaultLevel == null ? "WARN" : defaultLevel;
+          }
+          self.setLevel(initialLevel, false);
+        }
+
+        /*
+         *
+         * Package-level API
+         *
+         */
+
+        var defaultLogger = new Logger();
+
+        var _loggersByName = {};
+        defaultLogger.getLogger = function getLogger(name) {
+            if (typeof name !== "string" || name === "") {
+              throw new TypeError("You must supply a name when creating a logger.");
+            }
+
+            var logger = _loggersByName[name];
+            if (!logger) {
+              logger = _loggersByName[name] = new Logger(
+                name, defaultLogger.getLevel(), defaultLogger.methodFactory);
+            }
+            return logger;
+        };
+
+        // Grab the current global log variable in case of overwrite
+        var _log = (typeof window !== undefinedType) ? window.log : undefined;
+        defaultLogger.noConflict = function() {
+            if (typeof window !== undefinedType &&
+                   window.log === defaultLogger) {
+                window.log = _log;
+            }
+
+            return defaultLogger;
+        };
+
+        return defaultLogger;
+    }));
+    });
+
+    var loglevel$1 = (loglevel && typeof loglevel === 'object' && 'default' in loglevel ? loglevel['default'] : loglevel);
 
     var index$2 = createCommonjsModule(function (module) {
     'use strict';
@@ -948,451 +1178,231 @@
 
     var treo = (index && typeof index === 'object' && 'default' in index ? index['default'] : index);
 
-    var loglevel = createCommonjsModule(function (module) {
-    /*
-    * loglevel - https://github.com/pimterry/loglevel
-    *
-    * Copyright (c) 2013 Tim Perry
-    * Licensed under the MIT license.
-    */
-    (function (root, definition) {
-        "use strict";
-        if (typeof define === 'function' && define.amd) {
-            define(definition);
-        } else if (typeof module === 'object' && module.exports) {
-            module.exports = definition();
-        } else {
-            root.log = definition();
-        }
-    }(commonjsGlobal, function () {
-        "use strict";
-        var noop = function() {};
-        var undefinedType = "undefined";
-
-        function realMethod(methodName) {
-            if (typeof console === undefinedType) {
-                return false; // We can't build a real method without a console to log to
-            } else if (console[methodName] !== undefined) {
-                return bindMethod(console, methodName);
-            } else if (console.log !== undefined) {
-                return bindMethod(console, 'log');
-            } else {
-                return noop;
-            }
-        }
-
-        function bindMethod(obj, methodName) {
-            var method = obj[methodName];
-            if (typeof method.bind === 'function') {
-                return method.bind(obj);
-            } else {
-                try {
-                    return Function.prototype.bind.call(method, obj);
-                } catch (e) {
-                    // Missing bind shim or IE8 + Modernizr, fallback to wrapping
-                    return function() {
-                        return Function.prototype.apply.apply(method, [obj, arguments]);
-                    };
-                }
-            }
-        }
-
-        // these private functions always need `this` to be set properly
-
-        function enableLoggingWhenConsoleArrives(methodName, level, loggerName) {
-            return function () {
-                if (typeof console !== undefinedType) {
-                    replaceLoggingMethods.call(this, level, loggerName);
-                    this[methodName].apply(this, arguments);
-                }
-            };
-        }
-
-        function replaceLoggingMethods(level, loggerName) {
-            var this$1 = this;
-
-            /*jshint validthis:true */
-            for (var i = 0; i < logMethods.length; i++) {
-                var methodName = logMethods[i];
-                this$1[methodName] = (i < level) ?
-                    noop :
-                    this$1.methodFactory(methodName, level, loggerName);
-            }
-        }
-
-        function defaultMethodFactory(methodName, level, loggerName) {
-            /*jshint validthis:true */
-            return realMethod(methodName) ||
-                   enableLoggingWhenConsoleArrives.apply(this, arguments);
-        }
-
-        var logMethods = [
-            "trace",
-            "debug",
-            "info",
-            "warn",
-            "error"
-        ];
-
-        function Logger(name, defaultLevel, factory) {
-          var self = this;
-          var currentLevel;
-          var storageKey = "loglevel";
-          if (name) {
-            storageKey += ":" + name;
-          }
-
-          function persistLevelIfPossible(levelNum) {
-              var levelName = (logMethods[levelNum] || 'silent').toUpperCase();
-
-              // Use localStorage if available
-              try {
-                  window.localStorage[storageKey] = levelName;
-                  return;
-              } catch (ignore) {}
-
-              // Use session cookie as fallback
-              try {
-                  window.document.cookie =
-                    encodeURIComponent(storageKey) + "=" + levelName + ";";
-              } catch (ignore) {}
-          }
-
-          function getPersistedLevel() {
-              var storedLevel;
-
-              try {
-                  storedLevel = window.localStorage[storageKey];
-              } catch (ignore) {}
-
-              if (typeof storedLevel === undefinedType) {
-                  try {
-                      var cookie = window.document.cookie;
-                      var location = cookie.indexOf(
-                          encodeURIComponent(storageKey) + "=");
-                      if (location) {
-                          storedLevel = /^([^;]+)/.exec(cookie.slice(location))[1];
-                      }
-                  } catch (ignore) {}
-              }
-
-              // If the stored level is not valid, treat it as if nothing was stored.
-              if (self.levels[storedLevel] === undefined) {
-                  storedLevel = undefined;
-              }
-
-              return storedLevel;
-          }
-
-          /*
-           *
-           * Public API
-           *
-           */
-
-          self.levels = { "TRACE": 0, "DEBUG": 1, "INFO": 2, "WARN": 3,
-              "ERROR": 4, "SILENT": 5};
-
-          self.methodFactory = factory || defaultMethodFactory;
-
-          self.getLevel = function () {
-              return currentLevel;
-          };
-
-          self.setLevel = function (level, persist) {
-              if (typeof level === "string" && self.levels[level.toUpperCase()] !== undefined) {
-                  level = self.levels[level.toUpperCase()];
-              }
-              if (typeof level === "number" && level >= 0 && level <= self.levels.SILENT) {
-                  currentLevel = level;
-                  if (persist !== false) {  // defaults to true
-                      persistLevelIfPossible(level);
-                  }
-                  replaceLoggingMethods.call(self, level, name);
-                  if (typeof console === undefinedType && level < self.levels.SILENT) {
-                      return "No console available for logging";
-                  }
-              } else {
-                  throw "log.setLevel() called with invalid level: " + level;
-              }
-          };
-
-          self.setDefaultLevel = function (level) {
-              if (!getPersistedLevel()) {
-                  self.setLevel(level, false);
-              }
-          };
-
-          self.enableAll = function(persist) {
-              self.setLevel(self.levels.TRACE, persist);
-          };
-
-          self.disableAll = function(persist) {
-              self.setLevel(self.levels.SILENT, persist);
-          };
-
-          // Initialize with the right level
-          var initialLevel = getPersistedLevel();
-          if (initialLevel == null) {
-              initialLevel = defaultLevel == null ? "WARN" : defaultLevel;
-          }
-          self.setLevel(initialLevel, false);
-        }
-
-        /*
-         *
-         * Package-level API
-         *
-         */
-
-        var defaultLogger = new Logger();
-
-        var _loggersByName = {};
-        defaultLogger.getLogger = function getLogger(name) {
-            if (typeof name !== "string" || name === "") {
-              throw new TypeError("You must supply a name when creating a logger.");
-            }
-
-            var logger = _loggersByName[name];
-            if (!logger) {
-              logger = _loggersByName[name] = new Logger(
-                name, defaultLogger.getLevel(), defaultLogger.methodFactory);
-            }
-            return logger;
-        };
-
-        // Grab the current global log variable in case of overwrite
-        var _log = (typeof window !== undefinedType) ? window.log : undefined;
-        defaultLogger.noConflict = function() {
-            if (typeof window !== undefinedType &&
-                   window.log === defaultLogger) {
-                window.log = _log;
-            }
-
-            return defaultLogger;
-        };
-
-        return defaultLogger;
-    }));
-    });
-
-    var loglevel$1 = (loglevel && typeof loglevel === 'object' && 'default' in loglevel ? loglevel['default'] : loglevel);
-
     // Email msg buckets
-    var EMAIL_ID_BUCKET = '_email.id';
-    var EMAIL_TID_BUCKET = '_email.tid';
-    var SPECIAL_BUCKETS = ['_id.list', '_tid.list', EMAIL_ID_BUCKET, EMAIL_TID_BUCKET];
-
-    var SYNC_DB_PREFIX = 'rs_sync_log';
-    var SYNC_DB_SCHEMA = [{ name: 'events', indexes: ['value.sift.guid'] }, { name: 'admin' }];
-
-    var MSG_DB_PREFIX = 'rs_msg_db';
+    var EMAIL_BUCKETS = ['_email.id', '_email.tid'];
+    // Message Db schema
     var MSG_DB_VERSIONED_SCHEMA = [
       // version 1
-      [{ name: '_id.list', indexes: ['sift.guid'] }, { name: '_tid.list', indexes: ['sift.guid'] }],
+      [
+        { name: '_id.list', indexes: ['sift.guid'] },
+        { name: '_tid.list', indexes: ['sift.guid'] }
+      ],
       // version 2
-      [{ name: EMAIL_ID_BUCKET, indexes: ['sift.guid'] }, { name: EMAIL_TID_BUCKET, indexes: ['sift.guid'] }, { name: '_id.list', drop: true }, { name: '_tid.list', drop: true }]
+      [
+        { name: '_email.id', indexes: ['sift.guid'] },
+        { name: '_email.tid', indexes: ['sift.guid'] },
+        { name: '_id.list', drop: true },
+        { name: '_tid.list', drop: true }
+      ]
     ];
-
-    // siftDb required buckets
-    var USER_BUCKET = '_user.default';
-    var REDSIFT_BUCKET = '_redsift';
-
-    var RSStorage = function RSStorage(dbInfo, ll) {
-      loglevel$1.setLevel(ll || 'warn');
-      this._logger = loglevel$1;
-      // dbInfo: {type: 'SYNC' | 'MSG' | 'SIFT', siftGuid: guid, accountGuid: guid, schema: schema }
-      this._createDb(dbInfo);
-    };
+    // Sync DB schema
+    var SYNC_DB_SCHEMA = [
+      { name: 'events', indexes: ['value.sift.guid'] },
+      { name: 'admin' }];
 
     /*****************************************************************
-     * External Operations
+     * Operations (alphabetically ordered)
      *****************************************************************/
-    RSStorage.prototype.get = function get (params) {
-        var this$1 = this;
-
-      var db = this._db;
-      this._logger.trace('[RSStorage::get]: ', params);
-      if (!params.bucket) {
-        return Promise.reject('[RSStorage::get]: params.bucket undefined');
-      }
-      if (!params.keys || params.keys.length === 0) {
-        return Promise.reject('[RSStorage::get]: param.keys undefined');
-      }
-      if (params.bucket === EMAIL_ID_BUCKET || params.bucket === EMAIL_TID_BUCKET) {
-        db = this._msgDb;
-        var keys = params.keys.map(function (k) {
-          return this$1._siftGuid + '/' + k;
-        });
-        return this._findIn(db, params.bucket, keys).then(function (result) {
-          return result.map(function (r) {
-            return { key: r.key.split('/')[1], value: r.value };
-          });
-        });
-      }
-      return this._findIn(db, params.bucket, params.keys);
-    };
-
-    RSStorage.prototype.getIndexKeys = function getIndexKeys (params) {
-      var db = this._db;
-      this._logger.trace('[RSStorage::getIndexKeys]: ', params);
-      if (!params.bucket) {
-        return Promise.reject('[RSStorage::getIndexKeys]: params.bucket undefined');
-      }
-      if (!params.index) {
-        return Promise.reject('[RSStorage::getIndexKeys]: params.index undefined');
-      }
-      if (params.bucket === EMAIL_ID_BUCKET || params.bucket === EMAIL_TID_BUCKET) {
-        db = this._msgDb;
-        return this._getAll(db, params.bucket, false, params.index, params.range).then(function (result) {
-          return result.map(function (r) {
-            return { key: r.key.split('/')[1], value: r.value };
-          });
-        });
-      }
-      return this._getAll(db, params.bucket, false, params.index, params.range);
-    };
-
-    RSStorage.prototype.getIndex = function getIndex (params) {
-      var db = this._db;
-      this._logger.trace('[RSStorage::getIndex]: ', params);
-      if (!params.bucket) {
-        return Promise.reject('[RSStorage::getIndex]:params.bucket undefined');
-      }
-      if (!params.index) {
-        return Promise.reject('[RSStorage::getIndex]:params.index undefined');
-      }
-      if (params.bucket === EMAIL_ID_BUCKET || params.bucket === EMAIL_TID_BUCKET) {
-        db = this._msgDb;
-        return this._getAll(db, params.bucket, true, params.index, params.range).then(function (result) {
-          return result.map(function (r) {
-            return { key: r.key.split('/')[1], value: r.value };
-          });
-        });
-      }
-      return this._getAll(db, params.bucket, true, params.index, params.range);
-    };
-
-    RSStorage.prototype.getWithIndex = function getWithIndex (params) {
-        var this$1 = this;
-
-      var db = this._db;
-      this._logger.trace('[RSStorage::getWithIndex]: ', params);
-      if (!params.bucket) {
-        return Promise.reject('[RSStorage::getWithIndex]:params.bucket undefined');
-      }
-      if (!params.keys) {
-        return Promise.reject('[RSStorage::getWithIndex]:params.keys undefined');
-      }
-      if (!params.index) {
-        return Promise.reject('[RSStorage::getWithIndex]:params.index undefined');
-      }
-      if (!params.range) {
-        return Promise.reject('[RSStorage::getWithIndex]:params.range undefined');
-      }
-      if (params.bucket === EMAIL_ID_BUCKET || params.bucket === EMAIL_TID_BUCKET) {
-        db = this._msgDb;
-        var keys = params.keys.map(function (k) {
-          return this$1._siftGuid + '/' + k;
-        });
-        return this._getWithIndexRange(db, params.bucket, keys, params.index, params.range).then(function (result) {
-          return result.map(function (r) {
-            return { key: r.key.split('/')[1], value: r.value };
-          });
-        });
-      }
-      return this._getWithIndexRange(db, params.bucket, params.keys, params.index, params.range);
-    };
-
-    RSStorage.prototype.getAllKeys = function getAllKeys (params) {
-      var db = this._db;
-      this._logger.trace('[RSStorage::getAllKeys]: ', params);
-      if (!params.bucket) {
-        return Promise.reject('[RSStorage::getAllKeys]: params.bucket undefined');
-      }
-      if (params.bucket === EMAIL_ID_BUCKET || params.bucket === EMAIL_TID_BUCKET) {
-        db = this._msgDb;
-        return this._getAll(db, params.bucket, false, 'sift.guid', this._siftGuid)
-          .then(function (result) { return result.map(function (r) { return r.key.split('/')[1]; }); } );
-      }
-      return this._getAll(db, params.bucket, false);
-    };
-
-    RSStorage.prototype.getAll = function getAll (params) {
-      var db = this._db;
-      this._logger.trace('[RSStorage::getAll]: ', params);
-      if (!params.bucket) {
-        return Promise.reject('[RSStorage::getAll]: params.bucket undefined');
-      }
-      if (params.bucket === EMAIL_ID_BUCKET || params.bucket === EMAIL_TID_BUCKET) {
-        db = this._msgDb;
-        return this._getAll(db, params.bucket, true, 'sift.guid', this._siftGuid)
-          .then(function (result) { return result.map(function (r) { return ({ key: r.key.split('/')[1], value: r.value }); }); }
-          );
-      }
-      return this._getAll(db, params.bucket, true);
-    };
-
-    RSStorage.prototype.getUser = function getUser (params) {
-      this._logger.trace('[RSStorage::getUser]: ', params);
-      params.bucket = USER_BUCKET;
-      return this.get(params);
-    };
-
-    RSStorage.prototype.putUser = function putUser (params) {
-      params.bucket = USER_BUCKET;
-      this._logger.trace('[RSStorage::putUser]: ', params);
-      if (!params.kvs || params.kvs.length === 0) {
-        return Promise.reject('[RSStorage::putUser]: params.kvs undefined');
-      }
-      return this._put(params);
-    };;
-
-    RSStorage.prototype.delUser = function delUser (params) {
-      params.bucket = USER_BUCKET;
-      this._logger.trace('[RSStorage::delUser]: ', params);
-      return this._del(params);
-    };;
-
-    /*****************************************************************
-     * Internal Operations
-     *****************************************************************/
-    RSStorage.prototype._createDb = function _createDb (dbInfo) {
-      if (!dbInfo.accountGuid) {
-        throw new Error('[RSStorage::_createDb]: dbInfo.accountGuid undefined');
-      }
-      this._accountGuid = dbInfo.accountGuid;
+    // Create Db
+    function opCreateDb(dbInfo) {
+      loglevel$1.trace('[opCreateDb]: ', dbInfo);
+      var dbs = {};
       switch (dbInfo.type) {
         case 'MSG':
-          this._msgDb = treo(MSG_DB_PREFIX + '-' + dbInfo.accountGuid, this._getVersionedTreoSchema(MSG_DB_VERSIONED_SCHEMA));
+          dbs.msg = treo('rs_msg_db-' + dbInfo.accountGuid, _getVersionedTreoSchema(MSG_DB_VERSIONED_SCHEMA));
           break;
         case 'SIFT':
           if (!dbInfo.siftGuid) {
-            throw new Error('[RSStorage::_createDb]: dbInfo.siftGuid undefined');
+            throw new Error('[opCreateDb]: dbInfo.siftGuid undefined');
           }
-          else {
-            this._siftGuid = dbInfo.siftGuid;
-          }
-          this._logger.trace('[RSStorage::_createDb]: creating SIFT db.');
-          var schema = this._getTreoSchema(dbInfo.schema, true);
-          schema = schema.addStore(USER_BUCKET).addStore(REDSIFT_BUCKET);
-          this._db = treo(this._siftGuid + '-' + this._accountGuid, schema);
-          this._msgDb = treo(MSG_DB_PREFIX + '-' + dbInfo.accountGuid, this._getVersionedTreoSchema(MSG_DB_VERSIONED_SCHEMA));
+          loglevel$1.trace('[opCreateDb]: creating SIFT db');
+          var schema = _getTreoSchema(dbInfo.schema, true);
+          // Add user and redsift stores to sift db.
+          schema = schema.addStore('_user.default').addStore('_redsift');
+          dbs.db = treo(dbInfo.siftGuid + '-' + dbInfo.accountGuid, schema);
+          dbs.msg = treo('rs_msg_db-' + dbInfo.accountGuid, _getVersionedTreoSchema(MSG_DB_VERSIONED_SCHEMA));
           break;
         case 'SYNC':
-          this._logger.trace('[RSStorage::_createDb]: creating SYNC db.');
-          this._db = treo(SYNC_DB_PREFIX + '-' + dbInfo.accountGuid, this._getTreoSchema(SYNC_DB_SCHEMA));
+          loglevel$1.trace('[opCreateDb]: creating SYNC db');
+          dbs.db = treo('rs_sync_log-' + dbInfo.accountGuid, _getTreoSchema(SYNC_DB_SCHEMA));
           break;
         default:
-          throw new Error('[RSStorage::_createDb]: unsupported db type: ' + dbInfo.type);
+          throw new Error('[opCreateDb]: unsupported db type: ' + dbInfo.type);
       }
-    };
+      return dbs;
+    }
+
+    // Del
+    function opDel(dbs, params, siftGuid) {
+      loglevel$1.trace('[opDel]: ', params, siftGuid);
+      if (!params.bucket) {
+        return Promise.reject('[opDel]: params.bucket undefined');
+      }
+      if (!params.keys || params.keys.length === 0) {
+        loglevel$1.trace('[opDel]: params.keys undefined');
+        return Promise.resolve();
+      }
+      if (EMAIL_BUCKETS.indexOf(params.bucket) !== -1) {
+        var keys = params.keys.map(function (k) {
+          return siftGuid + '/' + k;
+        });
+        return _batchDelete(dbs.msg, { bucket: params.bucket, keys: keys });
+      }
+      return _batchDelete(dbs.db, params);
+    }
+
+    // Get
+    function opGet(dbs, params, siftGuid) {
+      loglevel$1.trace('[opGet]: ', params);
+      if (!params.bucket) {
+        return Promise.reject('[opGet]: params.bucket undefined');
+      }
+      if (!params.keys || params.keys.length === 0) {
+        return Promise.reject('[opGet]: param.keys undefined');
+      }
+      if (EMAIL_BUCKETS.indexOf(params.bucket) !== -1) {
+        var keys = params.keys.map(function (k) {
+          return siftGuid + '/' + k;
+        });
+        return _findIn(dbs.msg, { bucket: params.bucket, keys: keys }).then(function (result) {
+          return result.map(function (r) {
+            return { key: r.key.split('/')[1], value: r.value };
+          });
+        });
+      }
+      return _findIn(dbs.db, params);
+    }
+
+    // Get All
+    function opGetAll(dbs, params, siftGuid) {
+      loglevel$1.trace('[opGetAll]: ', params, siftGuid);
+      if (!params.bucket) {
+        return Promise.reject('[opGetAll]: params.bucket undefined');
+      }
+      if (EMAIL_BUCKETS.indexOf(params.bucket) !== -1) {
+        return _getAll(dbs.msg, { bucket: params.bucket, index: 'sift.guid', range: siftGuid }, true)
+          .then(function (result) { return result.map(function (r) { return ({ key: r.key.split('/')[1], value: r.value }); }); }
+          );
+      }
+      return _getAll(dbs.db, params, true);
+    }
+
+    // Get All Keys
+    function opGetAllKeys(dbs, params, siftGuid) {
+      loglevel$1.trace('[opGetAllKeys]: ', params, siftGuid);
+      if (!params.bucket) {
+        return Promise.reject('[opGetAllKeys]: params.bucket undefined');
+      }
+      if (EMAIL_BUCKETS.indexOf(params.bucket) !== -1) {
+        return _getAll(dbs.msg, { bucket: params.bucket, index: 'sift.guid', range: siftGuid }, false)
+          .then(function (result) { return result.map(function (r) { return r.key.split('/')[1]; }); });
+      }
+      return _getAll(dbs.db, params, false);
+    }
+
+    // Get Index
+    function opGetIndex(dbs, params, siftGuid) {
+      loglevel$1.trace('[opGetIndex]: ', params, siftGuid);
+      if (!params.bucket) {
+        return Promise.reject('[opGetIndex]:params.bucket undefined');
+      }
+      if (EMAIL_BUCKETS.indexOf(params.bucket) !== -1) {
+        return _getAll(dbs.msg, { bucket: params.bucket, index: 'sift.guid', range: siftGuid }, true).then(function (result) {
+          return result.map(function (r) {
+            return { key: r.key.split('/')[1], value: r.value };
+          });
+        });
+      }
+      if (!params.index) {
+        return Promise.reject('[opGetIndex]:params.index undefined');
+      }
+      return _getAll(dbs.db, params, true);
+    }
+
+    // Get Index Keys
+    function opGetIndexKeys(dbs, params, siftGuid) {
+      loglevel$1.trace('[opGetIndexKeys]: ', params, siftGuid);
+      if (!params.bucket) {
+        return Promise.reject('[opGetIndexKeys]: params.bucket undefined');
+      }
+      if (EMAIL_BUCKETS.indexOf(params.bucket) !== -1) {
+        return _getAll(dbs.msg, { bucket: params.bucket, index: 'sift.guid', range: siftGuid }, false).then(function (result) {
+          return result.map(function (r) {
+            return { key: r.key.split('/')[1], value: r.value };
+          });
+        });
+      }
+      if (!params.index) {
+        return Promise.reject('[opGetIndexKeys]: params.index undefined');
+      }
+      return _getAll(dbs.db, params, false);
+    }
+
+    // Get With Index
+    function opGetWithIndex(dbs, params, siftGuid) {
+      loglevel$1.trace('[opGetWithIndex]: ', params, siftGuid);
+      if (!params.bucket) {
+        return Promise.reject('[opGetWithIndex]:params.bucket undefined');
+      }
+      if (!params.keys) {
+        return Promise.reject('[opGetWithIndex]:params.keys undefined');
+      }
+      if (EMAIL_BUCKETS.indexOf(params.bucket) !== -1) {
+        var keys = params.keys.map(function (k) {
+          return siftGuid + '/' + k;
+        });
+        return _getWithIndexRange(dbs.msg, { bucket: params.bucket, keys: keys, index: 'sift.guid', range: siftGuid }).then(function (result) {
+          return result.map(function (r) {
+            return { key: r.key.split('/')[1], value: r.value };
+          });
+        });
+      }
+      if (!params.index) {
+        return Promise.reject('[opGetWithIndex]:params.index undefined');
+      }
+      if (!params.range) {
+        return Promise.reject('[opGetWithIndex]:params.range undefined');
+      }
+      return _getWithIndexRange(dbs.db, params);
+    }
+
+    // Put
+    function opPut(dbs, params, raw, siftGuid) {
+      loglevel$1.trace('[opPut]: ', params, raw, siftGuid);
+      var db = dbs.db;
+      if (!params.bucket) {
+        return Promise.reject('[opPut]: params.bucket undefined');
+      }
+      if (!params.kvs || params.kvs.length === 0) {
+        loglevel$1.warn('[opPut]: params.kvs undefined');
+        return Promise.resolve();
+      }
+      var kvs = params.kvs;
+      if (!raw) {
+        // Wrap value into a {value: object}
+        kvs = kvs.map(function (kv) {
+          return { key: kv.key, value: { value: kv.value } };
+        });
+      }
+      if (EMAIL_BUCKETS.indexOf(params.bucket) !== -1) {
+        db = dbs.msg;
+        var kvs = kvs.map(function (kv) {
+          return { key: siftGuid + '/' + kv.key, value: kv.value };
+        });
+      }
+      return _batchPut(db, { bucket: params.bucket, kvs: kvs }, raw);
+    }
+
+    /*****************************************************************
+     * Internal functions
+     *****************************************************************/
 
     // define db schema
-    RSStorage.prototype._getTreoSchema = function _getTreoSchema (stores, sift) {
+    function _getTreoSchema(stores, sift) {
+      loglevel$1.trace('[_getTreoSchema]: ', stores, sift);
       var schema = treo.schema().version(1);
       stores.forEach(function (os) {
-        if (!(sift && (SPECIAL_BUCKETS.indexOf(os.name) !== -1))) {
+        if (!(sift && (EMAIL_BUCKETS.indexOf(os.name) !== -1))) {
           if (os.keypath) {
             schema = schema.addStore(os.name, { key: os.keypath });
           }
@@ -1407,18 +1417,18 @@
         }
       });
       return schema;
-    };
+    }
 
-    RSStorage.prototype._getVersionedTreoSchema = function _getVersionedTreoSchema (versions, sift) {
-        var this$1 = this;
-
+    // versioned db schema
+    function _getVersionedTreoSchema(versions, sift) {
+      loglevel$1.trace('[_getVersionedTreoSchema]: ', versions, sift);
       var schema = treo.schema();
       versions.forEach(function (stores, i) {
         schema = schema.version(i + 1);
         stores.forEach(function (os) {
-          if (!(sift && (SPECIAL_BUCKETS.indexOf(os.name) !== -1))) {
+          if (!(sift && (EMAIL_BUCKETS.indexOf(os.name) !== -1))) {
             if (os.drop) {
-              this$1._logger.trace('[RSStorage::_getVersionedTreoSchema]: dropping store: ', os.name);
+              loglevel$1.trace('[_getVersionedTreoSchema]: dropping store: ', os.name);
               schema = schema.dropStore(os.name);
             }
             else if (os.keypath) {
@@ -1430,7 +1440,7 @@
             if (os.indexes) {
               os.indexes.forEach(function (idx) {
                 if (os.drop) {
-                  this$1._logger.trace('[RSStorage::_getVersionedTreoSchema]: dropping store/index: ' + os.name + '/' + idx);
+                  loglevel$1.trace('[_getVersionedTreoSchema]: dropping store/index: ' + os.name + '/' + idx);
                   schema = schema.dropIndex(idx);
                 }
                 else {
@@ -1442,96 +1452,19 @@
         });
       });
       return schema;
-    };
-
-    RSStorage.prototype._del = function _del (params) {
-        var this$1 = this;
-
-      var db = this._db;
-      if (!params.bucket) {
-        return Promise.reject('[RSStorage::_del]: params.bucket undefined');
-      }
-      if (!params.keys || params.keys.length === 0) {
-        this._logger.trace('[RSStorage::_del]: params.keys undefined');
-        return Promise.resolve();
-      }
-      var keys = params.keys;
-      if (params.bucket === EMAIL_ID_BUCKET || params.bucket === EMAIL_TID_BUCKET) {
-        db = this._msgDb;
-        keys = params.keys.map(function (k) {
-          return this$1._siftGuid + '/' + k;
-        });
-      }
-      return this._batchDelete(db, params.bucket, keys);
-    };
-
-    RSStorage.prototype._put = function _put (params, raw) {
-        var this$1 = this;
-
-      this._logger.trace('[RSStorage::_put]: ', params, raw);
-      var db = this._db;
-      if (!params.bucket) {
-        return Promise.reject('[RSStorage::_put]: params.bucket undefined');
-      }
-      if (!params.kvs || params.kvs.length === 0) {
-        this._logger.warn('[RSStorage::_put]: params.kvs undefined');
-        return Promise.resolve();
-      }
-      var kvs = params.kvs;
-      if (!raw) {
-        // Wrap value into a {value: object}
-        kvs = kvs.map(function (kv) {
-          return { key: kv.key, value: { value: kv.value } };
-        });
-      }
-      if (params.bucket === EMAIL_ID_BUCKET || params.bucket === EMAIL_TID_BUCKET) {
-        db = this._msgDb;
-        kvs = kvs.map(function (kv) {
-          return { key: this$1._siftGuid + '/' + kv.key, value: kv.value };
-        });
-      }
-      return this._batchPut(db, params.bucket, kvs);
-    };
-
-    RSStorage.prototype._deleteDatabase = function _deleteDatabase () {
-        var this$1 = this;
-
-      this._logger.trace('[RSStorage::_deleteDatabase]');
-      return new Promise(function (resolve, reject) {
-        this$1._db.drop(function (err) {
-          if (!err) {
-            resolve();
-          }
-          else {
-            reject(err);
-          }
-        });
-      });
-    };
-
-    RSStorage.prototype._cursor = function _cursor (params, done) {
-      this._logger.trace('[RSStorage::_cursor]', params);
-      if (!params.bucket) {
-        throw new Error('[RSStorage::_cursor: params.bucket undefined');
-      }
-      else {
-        var bucket = this._db.store(params.bucket);
-        bucket.cursor({ iterator: params.iterator.bind(this) }, done.bind(this));
-      }
-    };;
+    }
 
     // Batch deletion supports numeric keys
-    RSStorage.prototype._batchDelete = function _batchDelete (db, bucket, vals) {
-      this._logger.trace('[RSStorage::_batchDelete]: ', bucket, vals);
+    function _batchDelete(db, params) {
+      loglevel$1.trace('[_batchDelete]: ', params);
       return new Promise(function (resolve, reject) {
-        var keys = vals;
-        db.transaction('readwrite', [bucket], function (err, tr) {
+        db.transaction('readwrite', [params.bucket], function (err, tr) {
           if (err) { return reject(err); }
-          var store = tr.objectStore(bucket);
+          var store = tr.objectStore(params.bucket);
           var current = 0;
           var next = function () {
-            if (current >= keys.length) { return; }
-            var currentKey = keys[current];
+            if (current >= params.keys.length) { return; }
+            var currentKey = params.keys[current];
             var req;
             req = store.delete(currentKey);
             req.onerror = reject;
@@ -1543,23 +1476,21 @@
           next();
         });
       });
-    };
+    }
 
-    RSStorage.prototype._batchPut = function _batchPut (db, bucket, kvs) {
-        var this$1 = this;
-
-      this._logger.trace('[RSStorage::_batchPut]: ', db, bucket, kvs);
+    function _batchPut(db, params) {
+      loglevel$1.trace('[_batchPut]: ', params);
       return new Promise(function (resolve, reject) {
-        var count = kvs.length;
-        db.transaction('readwrite', [bucket], function (err, tr) {
+        var count = params.kvs.length;
+        db.transaction('readwrite', [params.bucket], function (err, tr) {
           if (err) { return reject(err); }
-          var store = tr.objectStore(bucket);
+          var store = tr.objectStore(params.bucket);
           var current = 0;
           var next = function () {
             if (current >= count) { return; }
-            this$1._logger.trace('[RSStorage::_batchPut: put: ', kvs[current]);
+            loglevel$1.trace('[_batchPut: put: ', params.kvs[current]);
             var req;
-            req = store.put(kvs[current].value, kvs[current].key);
+            req = store.put(params.kvs[current].value, params.kvs[current].key);
             req.onerror = reject;
             req.onsuccess = next;
             current += 1;
@@ -1569,126 +1500,192 @@
           next();
         });
       });
-    };
+    }
 
-    RSStorage.prototype._getWithIndexRange = function _getWithIndexRange (db, bucket, keys, index, range) {
-        var this$1 = this;
-
-      this._logger.trace('[RSStorage::_getWithIndexRange]: ', bucket, keys, index, range);
+    function _getWithIndexRange(db, params) {
+      loglevel$1.trace('[_getWithIndexRange]: ', params);
       return new Promise(function (resolve, reject) {
-        var store = db.store(bucket);
+        var store = db.store(params.bucket);
         var result = [];
         var found = 0;
         var iterator = function (cursor) {
-          var ki = keys.indexOf(cursor.primaryKey);
+          var ki = params.keys.indexOf(cursor.primaryKey);
           if (ki !== -1) {
-            this$1._logger.trace('[RSStorage::found key: ', cursor.primaryKey);
+            loglevel$1.trace('[found key: ', cursor.primaryKey);
             result[ki].value = cursor.value.value;
             found++;
           }
-          if (found === keys.length) {
+          if (found === params.keys.length) {
             return done();
           }
           cursor.continue();
         };
         var done = function (err) {
-          this$1._logger.trace('[RSStorage::_getWithIndexRange: result: ', result);
+          loglevel$1.trace('[_getWithIndexRange: result: ', result);
           err ? reject(err) : resolve(result);
         };
-        keys.forEach(function (k) {
+        params.keys.forEach(function (k) {
           result.push({ key: k, value: undefined });
         });
-        store.cursor({ index: index, range: range, iterator: iterator.bind(this$1) }, done.bind(this$1));
+        store.cursor({ index: params.index, range: params.range, iterator: iterator }, done);
       });
-    };
+    }
 
-    RSStorage.prototype._findIn = function _findIn (db, bucket, keys) {
-        var this$1 = this;
-
-      this._logger.trace('[RSStorage::_findIn]: ', bucket, keys);
+    function _findIn(db, params) {
+      loglevel$1.trace('[_findIn]: ', params);
       return new Promise(function (resolve, reject) {
-        var store = db.store(bucket);
+        var store = db.store(params.bucket);
         var result = [];
         var current = 0;
         var iterator = function (cursor) {
-          this$1._logger.trace('[RSStorage::_findIn]: iterator: ', cursor);
+          loglevel$1.trace('[_findIn]: iterator: ', cursor);
           if (cursor.key > sKeys[current]) {
-            this$1._logger.trace('[RSStorage::_findIn]: cursor ahead: ', cursor.key, sKeys[current]);
+            loglevel$1.trace('[_findIn]: cursor ahead: ', cursor.key, sKeys[current]);
             while (cursor.key > sKeys[current] && current < sKeys.length) {
               current += 1;
-              this$1._logger.trace('[RSStorage::_findIn]: moving to next key: ', cursor.key, sKeys[current]);
+              loglevel$1.trace('[_findIn]: moving to next key: ', cursor.key, sKeys[current]);
             }
             if (current > sKeys.length) {
-              this$1._logger.trace('[RSStorage::_findIn]: exhausted keys. done.');
+              loglevel$1.trace('[_findIn]: exhausted keys. done.');
               return done();
             }
           }
           if (cursor.key === sKeys[current]) {
-            this$1._logger.trace('[RSStorage::_findIn]: found key: ', cursor.key);
-            result[keys.indexOf(sKeys[current])] = { key: cursor.key, value: cursor.value.value };
+            loglevel$1.trace('[_findIn]: found key: ', cursor.key, cursor.value);
+            result[params.keys.indexOf(sKeys[current])] = { key: cursor.key, value: cursor.value.value };
             current += 1;
             (current < sKeys.length) ? cursor.continue(sKeys[current]) : done();
           }
           else {
-            this$1._logger.trace('[RSStorage::_findIn]: continuing to next key: ', sKeys[current]);
+            loglevel$1.trace('[_findIn]: continuing to next key: ', sKeys[current]);
             cursor.continue(sKeys[current]); // go to next key
           }
         };
         var done = function (err) {
-          this$1._logger.trace('[RSStorage::findIn]: result: ', result);
+          loglevel$1.trace('[findIn]: result: ', result);
           err ? reject(err) : resolve(result);
         };
-        var sKeys = keys.slice();
+        var sKeys = params.keys.slice();
         sKeys = sKeys.sort(treo.cmp);
-        this$1._logger.trace('[RSStorage::findIn: sorted keys: ', sKeys);
-        keys.forEach(function (k) {
+        loglevel$1.trace('[findIn: sorted keys: ', sKeys);
+        params.keys.forEach(function (k) {
           result.push({ key: k, value: undefined });
         });
-        store.cursor({ iterator: iterator.bind(this$1) }, done.bind(this$1));
+        store.cursor({ iterator: iterator }, done);
       });
-    };
+    }
 
-    RSStorage.prototype._getAll = function _getAll (db, bucket, loadValue, index, range) {
-        var this$1 = this;
-
-      this._logger.trace('[RSStorage::_getAll]: ', bucket, loadValue, index, range);
+    function _getAll(db, params, loadValue) {
+      loglevel$1.trace('[_getAll]: ', params, loadValue);
       return new Promise(function (resolve, reject) {
         var result = [];
         var keys = [];
-        var store = db.store(bucket);
+        var store = db.store(params.bucket);
         var iterator = function (cursor) {
           var kv = { key: cursor.primaryKey };
+          loglevel$1.trace('[_getAll]: cursor', cursor);
           if (loadValue) {
             kv.value = cursor.value.value;
           }
-          if (index) {
+          if (params.index) {
             kv.index = cursor.key;
           }
           result.push(kv);
           keys.push(cursor.primaryKey);
           cursor.continue();
         };
-        var opts = { iterator: iterator.bind(this$1) };
-        if (index) {
-          opts.index = index;
+        var opts = { iterator: iterator };
+        if (params.index) {
+          opts.index = params.index;
         }
-        if (range) {
-          opts.range = range;
+        if (params.range) {
+          opts.range = params.range;
         }
         store.cursor(opts, function (err) {
           if (err) {
             reject(err);
           }
           else {
-            if (!index && !range && !loadValue) {
+            if (!params.index && !params.range && !loadValue) {
+              loglevel$1.trace('[_getAll]: resolving: ', keys);
               resolve(keys);
             }
             else {
+              loglevel$1.trace('[_getAll]: resolving: ', result);
               resolve(result);
             }
           }
         });
       });
+    }
+
+    var _siftGuid = new WeakMap();
+    var _dbs = new WeakMap();
+
+    var Storage = function Storage(dbInfo, ll) {
+      loglevel$1.setLevel(ll || 'warn');
+      if (!dbInfo.accountGuid) {
+        throw new Error('[Storage]: dbInfo.accountGuid undefined');
+      }
+      _siftGuid.set(this, dbInfo.siftGuid);
+      _dbs.set(this, opCreateDb(dbInfo));
+    };
+
+    /*****************************************************************
+     * External Operations
+     *****************************************************************/
+    Storage.prototype.get = function get (params) {
+      loglevel$1.trace('[Storage::get]: ', params);
+      return opGet(_dbs.get(this), params, _siftGuid.get(this));
+    };
+
+    Storage.prototype.getAll = function getAll (params) {
+      loglevel$1.trace('[Storage::getAll]: ', params);
+      return opGetAll(_dbs.get(this), params, _siftGuid.get(this));
+    };
+
+    Storage.prototype.getAllKeys = function getAllKeys (params) {
+      loglevel$1.trace('[Storage::getAllKeys]: ', params);
+      return opGetAllKeys(_dbs.get(this), params, _siftGuid.get(this))
+    };
+
+    Storage.prototype.getIndex = function getIndex (params) {
+      loglevel$1.trace('[Storage::getIndex]: ', params);
+      return opGetIndex(_dbs.get(this), params, _siftGuid.get(this));
+    };
+
+    Storage.prototype.getIndexKeys = function getIndexKeys (params) {
+      loglevel$1.trace('[Storage::getIndexKeys]: ', params);
+      return opGetIndexKeys(_dbs.get(this), params, _siftGuid.get(this));
+    };
+
+    Storage.prototype.getWithIndex = function getWithIndex (params) {
+      loglevel$1.trace('[Storage::getWithIndex]: ', params);
+      return opGetWithIndex(_dbs.get(this), params, _siftGuid.get(this));
+    };
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Sift-only operations
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    Storage.prototype.delUser = function delUser (params) {
+      params.bucket = '_user.default';
+      loglevel$1.trace('[Storage::delUser]: ', params);
+      return opDel(_dbs.get(this), params, _siftGuid.get(this));
+    };
+
+    Storage.prototype.getUser = function getUser (params) {
+      params.bucket = '_user.default';
+      loglevel$1.trace('[Storage::getUser]: ', params);
+      return opGet(_dbs.get(this), params, _siftGuid.get(this));
+    };
+
+    Storage.prototype.putUser = function putUser (params) {
+      params.bucket = '_user.default';
+      loglevel$1.trace('[Storage::putUser]: ', params);
+      if (!params.kvs || params.kvs.length === 0) {
+        return Promise.reject('[Storage::putUser]: params.kvs undefined');
+      }
+      return opPut(_dbs.get(this), params, false, _siftGuid.get(this));
     };
 
     var SiftController = function SiftController() {
@@ -1712,7 +1709,7 @@
     SiftController.prototype._registerMessageListeners = function _registerMessageListeners () {
         var this$1 = this;
 
-      if(!this._proxy) return;
+      if (!this._proxy) return;
       this._proxy.onmessage = function (e) {
         // console.log('[SiftController::onmessage]: ', e.data);
         var method = e.data.method;
@@ -1728,13 +1725,12 @@
     SiftController.prototype._init = function _init (params) {
       // console.log('[SiftController::_init]: ', params);
       this.storage.init(
-        new RSStorage({
+        new Storage({
           type: 'SIFT',
           siftGuid: params.siftGuid,
           accountGuid: params.accountGuid,
           schema: params.dbSchema
-        },
-          false)
+        })
       );
       // Initialise sift details
       this._guid = params.siftGuid;
@@ -1747,7 +1743,7 @@
     };
 
     SiftController.prototype._terminate = function _terminate () {
-      if(!this._proxy) return;
+      if (!this._proxy) return;
       // console.log('[SiftController::_terminate]');
       this._proxy.close();
     };
@@ -1860,8 +1856,10 @@
       PixelTrackerController.prototype.threadUpdates = function threadUpdates (value){
         var this$1 = this;
 
-        if (!this._summaryView) return;
-
+        if (!this._summaryView) {
+          return;
+        }
+        
         console.log('sift-pixel-tracker: storage updated: ', value);
         this._getAllValues().then(function (graph) { return this$1.publish('graph', graph); } );
       };
@@ -1869,23 +1867,16 @@
       PixelTrackerController.prototype.loadView = function loadView (state) {
         console.log('sift-pixel-tracker: loadView', state);
         var result = {
-          html: 'view.html'
-        };
-
-        if (!state.params || Object.keys(state.params).length === 0) {
-          if (state.type === 'summary') {
-            // return async
-            this._summaryView = true;
-            result.data = this._getAllValues().then(function (g) { return ({ graph: g }); })
-          } else {
-            result.data = {
-              graph: {
-                'name': 'no-trackers-found',
-                'children': []
-              }
-            };
+          html: 'view.html',
+          data: {
+            graph: {}
           }
-        } else {
+        };
+        if (state.type === 'summary') {
+          // return async
+          this._summaryView = true;
+          result.data = this._getAllValues().then(function (g) { return ({ graph: g}); })
+        } else if (state.type === 'email-thread'){
           var graph = {
             name: 'Trackers',
             children: []
@@ -1893,20 +1884,23 @@
           var trackers = state.params.detail.trackers;
 
           Object.keys(trackers).forEach(function (tracker) {
-            if (typeof trackers[tracker] === 'number') {
-              graph.children.push({
-                name: tracker,
-                count: trackers[tracker]
-              });
-            } else {
-              graph.children.push({
-                name: tracker,
-                count: trackers[tracker].count,
-                url: trackers[tracker].url });
-            }
+            graph.children.push({
+              l: tracker,
+              v: trackers[tracker].count,
+              u: ("https://logo.clearbit.com/" + tracker + "?size=400")
+            });
           });
 
-          result.data = { graph: graph };
+          result.data.graph = graph;
+        }else {
+          result.data.graph = {
+            'name': 'Trackers',
+            'children': [{
+              name: 'no-trackers-found',
+              l: 'no-trackers-found',
+              v: 0
+            }]
+          };
         }
 
         console.log('result sync=', result);
@@ -1958,11 +1952,12 @@
             Object.keys(trackers).forEach(function (tracker) {
               //console.log('graphing:', tracker, trackers[tracker]);
               graph.children.push({
-                id: trackers[tracker].id,
-                count: trackers[tracker].count,
-                name: trackers[tracker].name
+                v: trackers[tracker].count,
+                l: trackers[tracker].name,
+                u: ("https://logo.clearbit.com/" + (trackers[tracker].id) + "?size=400")
               });
             });
+
 
             // console.log('graph async=', graph);
             return graph

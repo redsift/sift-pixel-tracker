@@ -2,6 +2,7 @@
  * sift-pixel-tracker: summary view
  */
 import { select } from 'd3-selection';
+import { transition } from 'd3-transition';
 import { SiftView, registerSiftView } from '@redsift/sift-sdk-web';
 import { html as treemap } from '@redsift/d3-rs-treemap';
 
@@ -12,11 +13,12 @@ export default class SummaryView extends SiftView {
     super();
 
     // Stores the currently displayed data so view can be reflown during transitions
-    this._div = select('.treemap');
+    this._div = '#treemap';
     this._treemap = treemap('pixel-tracker')
       .appendImage(true)
-      .imageFallbackLink("assets/fa-eye@3x.png")
+      .imageFallbackLink('assets/fa-eye@3x.png')
       .filter('emboss')
+    this.firstTime = true;
 
 
     // Subscribe to 'calendarupdated' updates from the Controller
@@ -40,9 +42,19 @@ export default class SummaryView extends SiftView {
     // };
 
  
-    let w = this._div.node().offsetWidth;
+    let w = select(this._div).node().offsetWidth;
     let h = select('#home').node().offsetHeight;
-    this._div.datum(data).call(this._treemap.width(w).height(h));
+
+    let container = select(this._div).datum(data)
+    if(this.firstTime){
+      this.firstTime = false;
+      container.call(this._treemap.width(w).height(h));
+    }else{
+      container.transition()
+        .delay(data.children.length / 10 * 800)
+        .duration(750)
+        .call(this._treemap.width(w).height(h))
+    }
 
   }
 

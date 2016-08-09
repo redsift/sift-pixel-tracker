@@ -38,8 +38,10 @@ export default class PixelTrackerController extends SiftController {
   // @resolve: function ({html:'<string>', data: {<object>})
   // @reject: function (error)
   threadUpdates(value){
-    if (!this._summaryView) return;
-
+    if (!this._summaryView) {
+      return;
+    }
+    
     console.log('sift-pixel-tracker: storage updated: ', value);
     this._getAllValues().then(graph => this.publish('graph', graph) );
   }
@@ -55,7 +57,7 @@ export default class PixelTrackerController extends SiftController {
     if (state.type === 'summary') {
       // return async
       this._summaryView = true;
-      result.data = this._getAllValues().then(g => ({graph: g}))
+      result.data = this._getAllValues().then(g => ({ graph: g}))
     } else if (state.type === 'email-thread'){
       var graph = {
         name: 'Trackers',
@@ -65,7 +67,6 @@ export default class PixelTrackerController extends SiftController {
 
       Object.keys(trackers).forEach(tracker => {
         graph.children.push({
-          name: tracker,
           l: tracker,
           v: trackers[tracker].count,
           u: `https://logo.clearbit.com/${tracker}?size=400`
@@ -129,13 +130,12 @@ export default class PixelTrackerController extends SiftController {
         Object.keys(trackers).forEach(tracker =>{
           //console.log('graphing:', tracker, trackers[tracker]);
           graph.children.push({
-            id: trackers[tracker].id,
-            name: trackers[tracker].name,
             v: trackers[tracker].count,
             l: trackers[tracker].name,
             u: `https://logo.clearbit.com/${trackers[tracker].id}?size=400`
           });
         });
+
 
         // console.log('graph async=', graph);
         return graph

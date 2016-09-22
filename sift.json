@@ -4,8 +4,6 @@
   "description": "This sift detects emails that are being tracked",
   "author": "Deepak Prabhakara",
   "version": "1.0.0",
-  "color": "#842F59",
-  "image": "https://static.redsift.io/assets/sifts/sift-pixel-tracker/cctv.jpg",
   "interfaces": {
     "email": {
       "thread": {

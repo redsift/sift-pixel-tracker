@@ -26,12 +26,12 @@
               {
                 "date": "between now and 1 month before now"
               }
-            ],
-            "wants": [
-              "archive",
-              "htmlBody"
             ]
-          }
+          },
+          "wants": [
+            "archive",
+            "htmlBody"
+          ]
         }
       }
     },

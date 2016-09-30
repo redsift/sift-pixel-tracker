@@ -1,6 +1,6 @@
 {
     "name": "sift-pixel-tracker",
-    "display-name": "Pixel Tracker",
+    "display-name": "Tracker Sift",
     "description": "This sift detects emails that are being tracked",
     "author": "Deepak Prabhakara",
     "version": "1.0.0",

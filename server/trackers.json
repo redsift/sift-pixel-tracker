@@ -11,6 +11,7 @@
   "sidekickopen" : { "name": "Sidekick" },
   "signauxtrois.com" : { "name": "Sidekick" },
   "tinyletterapp.com" : { "name": "TinyLetter" },
+  "o.dripemail2.com": {"name": "Drip"},
   "yesware.com" : { "name": "Yesware" },
   "email.conspire.com": { "name": "Conspire" },
   "click.email.secretescapes.com": { "name": "Secret Escapes" },
@@ -23,9 +24,9 @@
   "messages.zopa.com": { "name": "Zopa" },
   "in.grid.emsecure.net": { "name": "emsecure"},
   "ecomm.bt.com": { "name": "BT" },
-  "your.lufthansa-group.com": { "name": "Lufthansa" }, 
+  "your.lufthansa-group.com": { "name": "Lufthansa" },
   "emails.metrobankonline.co.uk": { "name": "Metro Bank" },
-  "image.nationwide-communications.co.uk": { "name": "Nationwide" }, 
+  "image.nationwide-communications.co.uk": { "name": "Nationwide" },
   "click.nationwide-communications.co.uk": { "name": "Nationwide" },
   "click.email.microsoftemail.com": { "name": "Microsoft" },
   "twitter.com": { "name": "Twitter" },
@@ -76,5 +77,4 @@
   "www.amazon.com": { "name": "Amazon.com"},
   "www.amazon.co.uk": {"name": "Amazon.com"},
   "yplanapp-newsletter.s3.amazonaws.com": {"name": "Amazon.com"}
-
 }

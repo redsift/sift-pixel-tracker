@@ -42,7 +42,9 @@ class Observable {
 
   _sub(topic, observer) {
     this._observers[topic] || (this._observers[topic] = []);
-    this._observers[topic].push(observer);
+    if(observer && this._observers[topic].indexOf(observer) === -1) {
+      this._observers[topic].push(observer);
+    }
   }
 
   _unsub(topic, observer) {
@@ -1157,6 +1159,9 @@ function indexedDB() {
 
 var treo = (index && typeof index === 'object' && 'default' in index ? index['default'] : index);
 
+var logger = loglevel$1.getLogger('RSStorage:operations');
+logger.setLevel('warn');
+
 // Email msg buckets
 const EMAIL_BUCKETS = ['_email.id', '_email.tid'];
 // Message Db schema
@@ -1178,13 +1183,18 @@ const MSG_DB_VERSIONED_SCHEMA = [
 const SYNC_DB_SCHEMA = [
   { name: 'events', indexes: ['value.sift.guid'] },
   { name: 'admin' }];
+// Client DB schema
+const CLIENT_DB_SCHEMA = [
+  { name: 'tour'},
+  { name: 'spm' },
+  { name: 'auth' }];
 
 /*****************************************************************
  * Operations (alphabetically ordered)
  *****************************************************************/
 // Create Db
 function opCreateDb(dbInfo) {
-  loglevel$1.trace('[opCreateDb]: ', dbInfo);
+  logger.trace('[opCreateDb]: ', dbInfo);
   let dbs = {};
   switch (dbInfo.type) {
     case 'MSG':
@@ -1194,7 +1204,7 @@ function opCreateDb(dbInfo) {
       if (!dbInfo.siftGuid) {
         throw new Error('[opCreateDb]: dbInfo.siftGuid undefined');
       }
-      loglevel$1.trace('[opCreateDb]: creating SIFT db');
+      logger.trace('[opCreateDb]: creating SIFT db');
       var schema = _getTreoSchema(dbInfo.schema, true);
       // Add user and redsift stores to sift db.
       schema = schema.addStore('_user.default').addStore('_redsift');
@@ -1202,8 +1212,11 @@ function opCreateDb(dbInfo) {
       dbs.msg = treo('rs_msg_db-' + dbInfo.accountGuid, _getVersionedTreoSchema(MSG_DB_VERSIONED_SCHEMA));
       break;
     case 'SYNC':
-      loglevel$1.trace('[opCreateDb]: creating SYNC db');
+      logger.trace('[opCreateDb]: creating SYNC db');
       dbs.db = treo('rs_sync_log-' + dbInfo.accountGuid, _getTreoSchema(SYNC_DB_SCHEMA));
+      break;
+    case 'CLIENT':
+      dbs.db = treo('rs_client_db-' + dbInfo.clientName, _getTreoSchema(CLIENT_DB_SCHEMA));
       break;
     default:
       throw new Error('[opCreateDb]: unsupported db type: ' + dbInfo.type);
@@ -1213,12 +1226,12 @@ function opCreateDb(dbInfo) {
 
 // Del
 function opDel(dbs, params, siftGuid) {
-  loglevel$1.trace('[opDel]: ', params, siftGuid);
+  logger.trace('[opDel]: ', params, siftGuid);
   if (!params.bucket) {
     return Promise.reject('[opDel]: params.bucket undefined');
   }
   if (!params.keys || params.keys.length === 0) {
-    loglevel$1.trace('[opDel]: params.keys undefined');
+    logger.trace('[opDel]: params.keys undefined');
     return Promise.resolve();
   }
   if (EMAIL_BUCKETS.indexOf(params.bucket) !== -1) {
@@ -1232,7 +1245,7 @@ function opDel(dbs, params, siftGuid) {
 
 // Get
 function opGet(dbs, params, siftGuid) {
-  loglevel$1.trace('[opGet]: ', params);
+  logger.trace('[opGet]: ', params);
   if (!params.bucket) {
     return Promise.reject('[opGet]: params.bucket undefined');
   }
@@ -1254,7 +1267,7 @@ function opGet(dbs, params, siftGuid) {
 
 // Get All
 function opGetAll(dbs, params, siftGuid) {
-  loglevel$1.trace('[opGetAll]: ', params, siftGuid);
+  logger.trace('[opGetAll]: ', params, siftGuid);
   if (!params.bucket) {
     return Promise.reject('[opGetAll]: params.bucket undefined');
   }
@@ -1269,7 +1282,7 @@ function opGetAll(dbs, params, siftGuid) {
 
 // Get All Keys
 function opGetAllKeys(dbs, params, siftGuid) {
-  loglevel$1.trace('[opGetAllKeys]: ', params, siftGuid);
+  logger.trace('[opGetAllKeys]: ', params, siftGuid);
   if (!params.bucket) {
     return Promise.reject('[opGetAllKeys]: params.bucket undefined');
   }
@@ -1282,7 +1295,7 @@ function opGetAllKeys(dbs, params, siftGuid) {
 
 // Get Index
 function opGetIndex(dbs, params, siftGuid) {
-  loglevel$1.trace('[opGetIndex]: ', params, siftGuid);
+  logger.trace('[opGetIndex]: ', params, siftGuid);
   if (!params.bucket) {
     return Promise.reject('[opGetIndex]:params.bucket undefined');
   }
@@ -1301,7 +1314,7 @@ function opGetIndex(dbs, params, siftGuid) {
 
 // Get Index Keys
 function opGetIndexKeys(dbs, params, siftGuid) {
-  loglevel$1.trace('[opGetIndexKeys]: ', params, siftGuid);
+  logger.trace('[opGetIndexKeys]: ', params, siftGuid);
   if (!params.bucket) {
     return Promise.reject('[opGetIndexKeys]: params.bucket undefined');
   }
@@ -1320,7 +1333,7 @@ function opGetIndexKeys(dbs, params, siftGuid) {
 
 // Get With Index
 function opGetWithIndex(dbs, params, siftGuid) {
-  loglevel$1.trace('[opGetWithIndex]: ', params, siftGuid);
+  logger.trace('[opGetWithIndex]: ', params, siftGuid);
   if (!params.bucket) {
     return Promise.reject('[opGetWithIndex]:params.bucket undefined');
   }
@@ -1348,13 +1361,13 @@ function opGetWithIndex(dbs, params, siftGuid) {
 
 // Put
 function opPut(dbs, params, raw, siftGuid) {
-  loglevel$1.trace('[opPut]: ', params, raw, siftGuid);
+  logger.trace('[opPut]: ', params, raw, siftGuid);
   var db = dbs.db;
   if (!params.bucket) {
     return Promise.reject('[opPut]: params.bucket undefined');
   }
   if (!params.kvs || params.kvs.length === 0) {
-    loglevel$1.warn('[opPut]: params.kvs undefined');
+    logger.warn('[opPut]: params.kvs undefined');
     return Promise.resolve();
   }
   var kvs = params.kvs;
@@ -1379,7 +1392,7 @@ function opPut(dbs, params, raw, siftGuid) {
 
 // define db schema
 function _getTreoSchema(stores, sift) {
-  loglevel$1.trace('[_getTreoSchema]: ', stores, sift);
+  logger.trace('[_getTreoSchema]: ', stores, sift);
   var schema = treo.schema().version(1);
   stores.forEach((os) => {
     if (!(sift && (EMAIL_BUCKETS.indexOf(os.name) !== -1))) {
@@ -1401,14 +1414,14 @@ function _getTreoSchema(stores, sift) {
 
 // versioned db schema
 function _getVersionedTreoSchema(versions, sift) {
-  loglevel$1.trace('[_getVersionedTreoSchema]: ', versions, sift);
+  logger.trace('[_getVersionedTreoSchema]: ', versions, sift);
   var schema = treo.schema();
   versions.forEach((stores, i) => {
     schema = schema.version(i + 1);
     stores.forEach((os) => {
       if (!(sift && (EMAIL_BUCKETS.indexOf(os.name) !== -1))) {
         if (os.drop) {
-          loglevel$1.trace('[_getVersionedTreoSchema]: dropping store: ', os.name);
+          logger.trace('[_getVersionedTreoSchema]: dropping store: ', os.name);
           schema = schema.dropStore(os.name);
         }
         else if (os.keypath) {
@@ -1420,7 +1433,7 @@ function _getVersionedTreoSchema(versions, sift) {
         if (os.indexes) {
           os.indexes.forEach((idx) => {
             if (os.drop) {
-              loglevel$1.trace('[_getVersionedTreoSchema]: dropping store/index: ' + os.name + '/' + idx);
+              logger.trace('[_getVersionedTreoSchema]: dropping store/index: ' + os.name + '/' + idx);
               schema = schema.dropIndex(idx);
             }
             else {
@@ -1436,7 +1449,7 @@ function _getVersionedTreoSchema(versions, sift) {
 
 // Batch deletion supports numeric keys
 function _batchDelete(db, params) {
-  loglevel$1.trace('[_batchDelete]: ', params);
+  logger.trace('[_batchDelete]: ', params);
   return new Promise((resolve, reject) => {
     db.transaction('readwrite', [params.bucket], (err, tr) => {
       if (err) { return reject(err); }
@@ -1459,7 +1472,7 @@ function _batchDelete(db, params) {
 }
 
 function _batchPut(db, params) {
-  loglevel$1.trace('[_batchPut]: ', params);
+  logger.trace('[_batchPut]: ', params);
   return new Promise((resolve, reject) => {
     var count = params.kvs.length;
     db.transaction('readwrite', [params.bucket], (err, tr) => {
@@ -1468,7 +1481,7 @@ function _batchPut(db, params) {
       var current = 0;
       var next = () => {
         if (current >= count) { return; }
-        loglevel$1.trace('[_batchPut: put: ', params.kvs[current]);
+        logger.trace('[_batchPut: put: ', params.kvs[current]);
         var req;
         req = store.put(params.kvs[current].value, params.kvs[current].key);
         req.onerror = reject;
@@ -1483,7 +1496,7 @@ function _batchPut(db, params) {
 }
 
 function _getWithIndexRange(db, params) {
-  loglevel$1.trace('[_getWithIndexRange]: ', params);
+  logger.trace('[_getWithIndexRange]: ', params);
   return new Promise((resolve, reject) => {
     var store = db.store(params.bucket);
     var result = [];
@@ -1491,7 +1504,7 @@ function _getWithIndexRange(db, params) {
     var iterator = (cursor) => {
       var ki = params.keys.indexOf(cursor.primaryKey);
       if (ki !== -1) {
-        loglevel$1.trace('[found key: ', cursor.primaryKey);
+        logger.trace('[found key: ', cursor.primaryKey);
         result[ki].value = cursor.value.value;
         found++;
       }
@@ -1501,7 +1514,7 @@ function _getWithIndexRange(db, params) {
       cursor.continue();
     };
     var done = (err) => {
-      loglevel$1.trace('[_getWithIndexRange: result: ', result);
+      logger.trace('[_getWithIndexRange: result: ', result);
       err ? reject(err) : resolve(result);
     };
     params.keys.forEach((k) => {
@@ -1512,42 +1525,42 @@ function _getWithIndexRange(db, params) {
 }
 
 function _findIn(db, params) {
-  loglevel$1.trace('[_findIn]: ', params);
+  logger.trace('[_findIn]: ', params);
   return new Promise((resolve, reject) => {
     var store = db.store(params.bucket);
     var result = [];
     var current = 0;
     var iterator = (cursor) => {
-      loglevel$1.trace('[_findIn]: iterator: ', cursor);
+      logger.trace('[_findIn]: iterator: ', cursor);
       if (cursor.key > sKeys[current]) {
-        loglevel$1.trace('[_findIn]: cursor ahead: ', cursor.key, sKeys[current]);
+        logger.trace('[_findIn]: cursor ahead: ', cursor.key, sKeys[current]);
         while (cursor.key > sKeys[current] && current < sKeys.length) {
           current += 1;
-          loglevel$1.trace('[_findIn]: moving to next key: ', cursor.key, sKeys[current]);
+          logger.trace('[_findIn]: moving to next key: ', cursor.key, sKeys[current]);
         }
         if (current > sKeys.length) {
-          loglevel$1.trace('[_findIn]: exhausted keys. done.');
+          logger.trace('[_findIn]: exhausted keys. done.');
           return done();
         }
       }
       if (cursor.key === sKeys[current]) {
-        loglevel$1.trace('[_findIn]: found key: ', cursor.key, cursor.value);
+        logger.trace('[_findIn]: found key: ', cursor.key, cursor.value);
         result[params.keys.indexOf(sKeys[current])] = { key: cursor.key, value: cursor.value.value };
         current += 1;
         (current < sKeys.length) ? cursor.continue(sKeys[current]) : done();
       }
       else {
-        loglevel$1.trace('[_findIn]: continuing to next key: ', sKeys[current]);
+        logger.trace('[_findIn]: continuing to next key: ', sKeys[current]);
         cursor.continue(sKeys[current]); // go to next key
       }
     };
     var done = (err) => {
-      loglevel$1.trace('[findIn]: result: ', result);
+      logger.trace('[findIn]: result: ', result);
       err ? reject(err) : resolve(result);
     };
     var sKeys = params.keys.slice();
     sKeys = sKeys.sort(treo.cmp);
-    loglevel$1.trace('[findIn: sorted keys: ', sKeys);
+    logger.trace('[findIn: sorted keys: ', sKeys);
     params.keys.forEach((k) => {
       result.push({ key: k, value: undefined });
     });
@@ -1556,14 +1569,14 @@ function _findIn(db, params) {
 }
 
 function _getAll(db, params, loadValue) {
-  loglevel$1.trace('[_getAll]: ', params, loadValue);
+  logger.trace('[_getAll]: ', params, loadValue);
   return new Promise((resolve, reject) => {
     var result = [];
     var keys = [];
     var store = db.store(params.bucket);
     var iterator = (cursor) => {
       var kv = { key: cursor.primaryKey };
-      loglevel$1.trace('[_getAll]: cursor', cursor);
+      logger.trace('[_getAll]: cursor', cursor);
       if (loadValue) {
         kv.value = cursor.value.value;
       }
@@ -1587,11 +1600,11 @@ function _getAll(db, params, loadValue) {
       }
       else {
         if (!params.index && !params.range && !loadValue) {
-          loglevel$1.trace('[_getAll]: resolving: ', keys);
+          logger.trace('[_getAll]: resolving: ', keys);
           resolve(keys);
         }
         else {
-          loglevel$1.trace('[_getAll]: resolving: ', result);
+          logger.trace('[_getAll]: resolving: ', result);
           resolve(result);
         }
       }
@@ -1599,12 +1612,19 @@ function _getAll(db, params, loadValue) {
   });
 }
 
+/**
+ * Redsift SDK. Sift Storage module.
+ * Based on APIs from https://github.com/CrowdProcess/riak-pb
+ *
+ * Copyright (c) 2016 Redsift Limited. All rights reserved.
+ */
 let _siftGuid = new WeakMap();
 let _dbs = new WeakMap();
 
 class Storage {
   constructor(dbInfo, ll) {
-    loglevel$1.setLevel(ll || 'warn');
+    this._logger = loglevel$1.getLogger('RSStorage');
+    this._logger.setLevel(ll || 'warn');
     if (!dbInfo.accountGuid) {
       throw new Error('[Storage]: dbInfo.accountGuid undefined');
     }
@@ -1616,32 +1636,32 @@ class Storage {
    * External Operations
    *****************************************************************/
   get(params) {
-    loglevel$1.trace('[Storage::get]: ', params);
+    this._logger.trace('[Storage::get]: ', params);
     return opGet(_dbs.get(this), params, _siftGuid.get(this));
   }
 
   getAll(params) {
-    loglevel$1.trace('[Storage::getAll]: ', params);
+    this._logger.trace('[Storage::getAll]: ', params);
     return opGetAll(_dbs.get(this), params, _siftGuid.get(this));
   }
 
   getAllKeys(params) {
-    loglevel$1.trace('[Storage::getAllKeys]: ', params);
+    this._logger.trace('[Storage::getAllKeys]: ', params);
     return opGetAllKeys(_dbs.get(this), params, _siftGuid.get(this))
   }
 
   getIndex(params) {
-    loglevel$1.trace('[Storage::getIndex]: ', params);
+    this._logger.trace('[Storage::getIndex]: ', params);
     return opGetIndex(_dbs.get(this), params, _siftGuid.get(this));
   }
 
   getIndexKeys(params) {
-    loglevel$1.trace('[Storage::getIndexKeys]: ', params);
+    this._logger.trace('[Storage::getIndexKeys]: ', params);
     return opGetIndexKeys(_dbs.get(this), params, _siftGuid.get(this));
   }
 
   getWithIndex(params) {
-    loglevel$1.trace('[Storage::getWithIndex]: ', params);
+    this._logger.trace('[Storage::getWithIndex]: ', params);
     return opGetWithIndex(_dbs.get(this), params, _siftGuid.get(this));
   }
 
@@ -1650,19 +1670,19 @@ class Storage {
   ///////////////////////////////////////////////////////////////////////////////////////////////
   delUser(params) {
     params.bucket = '_user.default';
-    loglevel$1.trace('[Storage::delUser]: ', params);
+    this._logger.trace('[Storage::delUser]: ', params);
     return opDel(_dbs.get(this), params, _siftGuid.get(this));
   }
 
   getUser(params) {
     params.bucket = '_user.default';
-    loglevel$1.trace('[Storage::getUser]: ', params);
+    this._logger.trace('[Storage::getUser]: ', params);
     return opGet(_dbs.get(this), params, _siftGuid.get(this));
   }
 
   putUser(params) {
     params.bucket = '_user.default';
-    loglevel$1.trace('[Storage::putUser]: ', params);
+    this._logger.trace('[Storage::putUser]: ', params);
     if (!params.kvs || params.kvs.length === 0) {
       return Promise.reject('[Storage::putUser]: params.kvs undefined');
     }
@@ -1674,7 +1694,6 @@ class Storage {
 class SiftController {
   constructor() {
     this._proxy = self;
-    this.storage = new SiftStorage();
     this.view = new Observable();
     this.emailclient = new EmailClient(self);
     this._registerMessageListeners();
@@ -1706,6 +1725,7 @@ class SiftController {
 
   _init(params) {
     // console.log('[SiftController::_init]: ', params);
+    this.storage = new SiftStorage();
     this.storage.init(
       new Storage({
         type: 'SIFT',
@@ -1797,6 +1817,12 @@ function registerSiftController(siftController) {
   console.log('[Redsift::registerSiftController]: registered');
 }
 
+/**
+ * sift-pixel-tracker: frontend controller entry point.
+ *
+ * Copyright (c) 2016 Redsift Limited. All rights reserved.
+ */
+
 class PixelTrackerController extends SiftController {
   constructor() {
     // You have to call the super() method to initialize the base class.
@@ -1804,14 +1830,8 @@ class PixelTrackerController extends SiftController {
 
     this._summaryView = false;
 
-
-    // // This is how you subscribe to the storage  (to use class variables and functions don't
-    // // forget to bind the 'this' pointer!):
-    // this.storage.subscribe(['year', 'month', 'day'], this.onStorageUpdate.bind(this));
-    // // Subscribe to your custom events from the Sift view like so (to use class variables and functions don't
-    // // forget to bind the 'this' pointer!):
-    // this.view.subscribe('currency', this.onCurrencyChange.bind(this));
-    this.storage.subscribe('_email.tid', this.threadUpdates.bind(this))
+    this._tUpdates = this.threadUpdates.bind(this);
+    this._countUpdates = this.countUpdates.bind(this);
   }
 
   // Function: loadView
@@ -1832,24 +1852,55 @@ class PixelTrackerController extends SiftController {
     if (!this._summaryView) {
       return;
     }
-    
+
     console.log('sift-pixel-tracker: storage updated: ', value);
     this._getAllValues().then(graph => this.publish('graph', graph) );
   }
 
+  countUpdates() {
+    console.log('COUNT UPDATES');
+    var self = this;
+    return Promise.all([
+      this.storage.getAll({ bucket: '_email.tid' }),
+      this.storage.getAll({ bucket: 'email_totals' })
+    ])
+    .then(function (data) {
+      var trackers_count = data[0].length;
+      var matched_total = null;
+      data[1].map(function(item) {
+        if (item.key === "total") {
+          matched_total = parseInt(item.value, 10);
+        }
+      });
+      if (matched_total > 0) {
+        return {trackers: trackers_count, total: matched_total};
+      } else {
+        console.warn("could not count total emails");
+        return null;
+      }
+    })
+  }
+
   loadView(state) {
     console.log('sift-pixel-tracker: loadView', state);
+    this.storage.subscribe('_email.tid', this._tUpdates);
+    this.storage.subscribe("email_totals", this._countUpdates);
+
     var result = {
       html: 'view.html',
       data: {
         graph: {}
       }
     };
+
     if (state.type === 'summary') {
-      // return async
       this._summaryView = true;
-      result.data = this._getAllValues().then(g => ({ graph: g}))
-    } else if (state.type === 'email-thread'){
+      result.data = Promise.all([this._getAllValues(), this.countUpdates()])
+        .then((pmres) => {
+          return {graph: pmres[0], count: pmres[1]};
+        });
+
+    } else if (state.type === 'email-thread') {
       var graph = {
         name: 'Trackers',
         children: []
@@ -1865,18 +1916,14 @@ class PixelTrackerController extends SiftController {
       });
 
       result.data.graph = graph;
-    }else {
+    } else {
       result.data.graph = {
-        'name': 'Trackers',
-        'children': [{
-          name: 'no-trackers-found',
-          l: 'no-trackers-found',
-          v: 0
-        }]
+        'name': 'no-trackers-found',
+        'children': []
       };
     }
 
-    console.log('result sync=', result);
+    // console.log('result sync=', result);
     // Synchronous return
     return result;
   }
@@ -1895,8 +1942,8 @@ class PixelTrackerController extends SiftController {
             let obj = JSON.parse(result.value);
             Object.keys(obj.detail.trackers).forEach(tracker => {
               let name = obj.detail.trackers[tracker].name.toLowerCase();
-              // console.log('tracker=', tracker, name, obj.detail.trackers[tracker].id);
-              // console.log('tracker name=', name);
+              //console.log('tracker=', tracker);
+              //console.log('tracker name=', name);
               let trackerHash = trackers[name];
               if (!trackerHash) {
                 trackerHash = { count: 0 };
@@ -1918,7 +1965,7 @@ class PixelTrackerController extends SiftController {
           }
         });
 
-        Object.keys(trackers).forEach(tracker =>{
+        Object.keys(trackers).forEach(tracker => {
           //console.log('graphing:', tracker, trackers[tracker]);
           graph.children.push({
             v: trackers[tracker].count,
@@ -1927,8 +1974,6 @@ class PixelTrackerController extends SiftController {
           });
         });
 
-
-        // console.log('graph async=', graph);
         return graph
       }).catch(function (err) {
         console.log('Got error', err);

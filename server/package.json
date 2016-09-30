@@ -1,10 +1,10 @@
 {
-	"name": "sift-pixel-tracker",
-	"display-name": "",
-	"description": "",
-	"author": "Deepak Prabhakara",
-	"version": "1.0.0",
-	"dependencies": {
-    "htmlparser2": "3.8.3"
-  }
+    "name": "sift-pixel-tracker",
+    "display-name": "",
+    "description": "",
+    "author": "Deepak Prabhakara",
+    "version": "1.0.0",
+    "dependencies": {
+        "htmlparser2": "3.8.3"
+    }
 }

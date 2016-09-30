@@ -272,6 +272,8 @@ var loglevel = createCommonjsModule(function (module) {
 }));
 });
 
+var loglevel$1 = (loglevel && typeof loglevel === 'object' && 'default' in loglevel ? loglevel['default'] : loglevel);
+
 var index$2 = createCommonjsModule(function (module) {
 'use strict';
 var toString = Object.prototype.toString;
@@ -1080,6 +1082,16 @@ function indexedDB() {
     || commonjsGlobal.webkitIndexedDB;
 }
 });
+
+var logger = loglevel$1.getLogger('RSStorage:operations');
+logger.setLevel('warn');
+
+/**
+ * Redsift SDK. Sift Storage module.
+ * Based on APIs from https://github.com/CrowdProcess/riak-pb
+ *
+ * Copyright (c) 2016 Redsift Limited. All rights reserved.
+ */
 
 function registerEmailClientController(emailClientController) {
   console.log('[Redsift::registerEmailClientController]: registered');

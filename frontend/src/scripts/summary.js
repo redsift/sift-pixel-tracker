@@ -1,11 +1,12 @@
 /**
  * sift-pixel-tracker: summary view
  */
+
 import { select } from 'd3-selection';
 import { transition } from 'd3-transition';
 import { SiftView, registerSiftView } from '@redsift/sift-sdk-web';
 import { html as treemap } from '@redsift/d3-rs-treemap';
-
+import '@redsift/ui-rs-hero';
 
 export default class SummaryView extends SiftView {
   constructor() {
@@ -20,10 +21,8 @@ export default class SummaryView extends SiftView {
       .filter('emboss')
     this.firstTime = true;
 
-
-    // Subscribe to 'calendarupdated' updates from the Controller
-    this.controller.subscribe('graph', this.onGraphUpdated.bind(this));
-
+    this.controller.subscribe('graph', this._updateGraph.bind(this));
+    this.controller.subscribe("count", this.updateHero.bind(this));
 
     // The SiftView provides lifecycle methods for when the Sift is fully loaded into the DOM (onLoad) and when it is
     // resizing (onResize).
@@ -32,24 +31,20 @@ export default class SummaryView extends SiftView {
   }
 
   _updateGraph(data){
-    console.log('updating graph')
-    // console.log('updateGraph:', data);
-
     // let getLabel = d => {
     //   return d.data.name === 'no-trackers-found' || d.children
     //   ? null
     //   : d.data.name + (d.data.count ? ' (' + d.data.count + ')' : '')
     // };
 
- 
     let w = select(this._div).node().offsetWidth;
     let h = select('#home').node().offsetHeight;
 
     let container = select(this._div).datum(data)
-    if(this.firstTime){
+    if (this.firstTime) {
       this.firstTime = false;
       container.call(this._treemap.width(w).height(h));
-    }else{
+    } else {
       container.transition()
         .delay(data.children.length / 10 * 800)
         .duration(750)
@@ -59,14 +54,25 @@ export default class SummaryView extends SiftView {
   }
 
   onGraphUpdated(g){
-     console.log('sift-pixel-tracker: graph', g);
+    console.log('sift-pixel-tracker: graph', g);
     this._updateGraph(g);
   }
 
   presentView(value){
     console.log('sift-pixel-tracker: presentView: ', value);
     this._updateGraph(value.data.graph);
+
+    if (value.data.count) {
+      this.updateHero(value.data.count);
+    }
   }
+
+  updateHero({trackers, total}) {
+    document.getElementById("tracked_count").innerHTML = trackers;
+    var tracked_ratio = (100 * trackers / total).toFixed(0);
+    document.getElementById("tracked_percentage").innerHTML = tracked_ratio + "% (" + trackers + " / " + total + ") ";
+  }
+
   willPresentView(value){
     console.log('sift-pixel-tracker: willPresentView: ', value);
   }

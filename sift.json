@@ -1,82 +1,114 @@
 {
-  "name": "sift-pixel-tracker",
-  "display-name": "Pixel Tracker",
-  "description": "This sift detects emails that are being tracked",
-  "author": "Deepak Prabhakara",
-  "version": "1.0.0",
-  "interfaces": {
-    "email": {
-      "thread": {
-        "controller": "dist/js/controller.umd-es2015.js"
-      },
-      "client": {
-        "controller": "dist/js/email-client-controller.umd-es2015.js"
-      }
-    },
-    "summary": {
-      "controller": "dist/js/controller.umd-es2015.js"
-    }
-  },
-  "dag": {
-    "inputs": {
-      "emails": {
-        "trackers": {
-          "filter": {
-            "conditions": [
-              {
-                "date": "between now and 1 month before now"
-              }
-            ]
-          },
-          "wants": [
-            "archive",
-            "htmlBody"
-          ]
-        }
-      }
-    },
-    "nodes": [
-      {
-        "#": "Messages mapper",
-        "implementation": {
-          "javascript": "server/map.js"
+    "name": "sift-pixel-tracker",
+    "display-name": "Pixel Tracker",
+    "description": "This sift detects emails that are being tracked",
+    "author": "Deepak Prabhakara",
+    "version": "1.0.0",
+    "interfaces": {
+        "email": {
+            "thread": {
+                "controller": "dist/js/controller.umd-es2015.js"
+            },
+            "client": {
+                "controller": "dist/js/email-client-controller.umd-es2015.js"
+            }
         },
-        "input": {
-          "bucket": "trackers"
+        "summary": {
+            "controller": "dist/js/controller.umd-es2015.js"
+        }
+    },
+    "dag": {
+        "inputs": {
+            "emails": {
+                "trackers": {
+                    "filter": {
+                        "conditions": [
+                            {
+                                "date": "between now and 1 month before now"
+                            }
+                        ]
+                    },
+                    "wants": [
+                        "textBody",
+                        "archive",
+                        "htmlBody"
+                    ]
+                }
+            }
+        },
+        "nodes": [
+            {
+                "#": "Messages mapper",
+                "implementation": {
+                    "javascript": "server/map.js"
+                },
+                "input": {
+                    "bucket": "trackers"
+                },
+                "outputs": {
+                    "idList": {},
+                    "threads": {}
+                }
+            },
+            {
+                "#": "All emails",
+                "implementation": {
+                    "javascript": "server/map_all_emails.js"
+                },
+                "input": {
+                    "bucket": "trackers"
+                },
+                "outputs": {
+                    "all_emails": {}
+                }
+            },
+            {
+                "#": "Threads aggregator",
+                "implementation": {
+                    "javascript": "server/threads.js"
+                },
+                "input": {
+                    "bucket": "threads",
+                    "select": "/*"
+                },
+                "outputs": {
+                    "tidList": {}
+                }
+            },
+            {
+                "#": "Count emails",
+                "implementation": {
+                    "javascript": "server/reduce_all_mails.js"
+                },
+                "input": {
+                    "bucket": "all_emails",
+                    "select": "*"
+                },
+                "outputs": {
+                    "email_totals": {}
+                }
+            }
+        ],
+        "stores": {
+            "threads": {
+                "key$schema": "string/string"
+            },
+            "all_emails": {
+                "key$schema": "string"
+            }
         },
         "outputs": {
-          "idList": {},
-          "threads": {}
+            "exports": {
+                "email_totals": {
+                    "key$schema": "string"
+                },
+                "idList": {
+                    "import": "_email.id"
+                },
+                "tidList": {
+                    "import": "_email.tid"
+                }
+            }
         }
-      },
-      {
-        "#": "Threads aggregator",
-        "implementation": {
-          "javascript": "server/threads.js"
-        },
-        "input": {
-          "bucket": "threads",
-          "select": "/*"
-        },
-        "outputs": {
-          "tidList": {}
-        }
-      }
-    ],
-    "stores": {
-      "threads": {
-        "key$schema": "string/string"
-      }
-    },
-    "outputs": {
-      "exports": {
-        "idList": {
-          "import": "_email.id"
-        },
-        "tidList": {
-          "import": "_email.tid"
-        }
-      }
     }
-  }
 }

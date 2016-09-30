@@ -1,0 +1,10 @@
+{
+	"access_token": "<YOUR ACCESS TOKEN>",
+	"user_id": "<YOUR USER ID>",
+	"team_name": "<YOUR TEAM NAME>",
+	"team_id": "<YOUR TEAM ID>",
+	"bot": {
+		"bot_user_id": "<YOUR BOT USER ID>",
+		"bot_access_token": "<YOUR BOT ACCESS TOKEN>"
+	}
+}

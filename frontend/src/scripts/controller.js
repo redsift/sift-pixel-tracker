@@ -4,7 +4,7 @@
  * Copyright (c) 2016 Redsift Limited. All rights reserved.
  */
 
-import { SiftController, registerSiftController } from '@redsift/sift-sdk-web';
+import {SiftController, registerSiftController} from '@redsift/sift-sdk-web';
 
 export default class PixelTrackerController extends SiftController {
   constructor() {
@@ -13,14 +13,8 @@ export default class PixelTrackerController extends SiftController {
 
     this._summaryView = false;
 
-
-    // // This is how you subscribe to the storage  (to use class variables and functions don't
-    // // forget to bind the 'this' pointer!):
-    // this.storage.subscribe(['year', 'month', 'day'], this.onStorageUpdate.bind(this));
-    // // Subscribe to your custom events from the Sift view like so (to use class variables and functions don't
-    // // forget to bind the 'this' pointer!):
-    // this.view.subscribe('currency', this.onCurrencyChange.bind(this));
-    this.storage.subscribe('_email.tid', this.threadUpdates.bind(this))
+    this._tUpdates = this.threadUpdates.bind(this);
+    this._countUpdates = this.countUpdates.bind(this);
   }
 
   // Function: loadView
@@ -41,24 +35,54 @@ export default class PixelTrackerController extends SiftController {
     if (!this._summaryView) {
       return;
     }
-    
+
     console.log('sift-pixel-tracker: storage updated: ', value);
     this._getAllValues().then(graph => this.publish('graph', graph) );
   }
 
+  countUpdates() {
+    var self = this;
+    return Promise.all([
+      this.storage.getAll({ bucket: '_email.tid' }),
+      this.storage.getAll({ bucket: 'email_totals' })
+    ])
+    .then(function (data) {
+      var trackers_count = data[0].length;
+      var matched_total = null;
+      data[1].map(function(item) {
+        if (item.key === "total") {
+          matched_total = parseInt(item.value, 10);
+        }
+      });
+      if (matched_total > 0) {
+        return {trackers: trackers_count, total: matched_total};
+      } else {
+        console.warn("could not count total emails");
+        return null;
+      }
+    })
+  }
+
   loadView(state) {
     console.log('sift-pixel-tracker: loadView', state);
+    this.storage.subscribe('_email.tid', this._tUpdates);
+    this.storage.subscribe("email_totals", this._countUpdates);
+
     var result = {
       html: 'view.html',
       data: {
         graph: {}
       }
     };
+
     if (state.type === 'summary') {
-      // return async
       this._summaryView = true;
-      result.data = this._getAllValues().then(g => ({ graph: g}))
-    } else if (state.type === 'email-thread'){
+      result.data = Promise.all([this._getAllValues(), this.countUpdates()])
+        .then((pmres) => {
+          return {graph: pmres[0], count: pmres[1]};
+        });
+
+    } else if (state.type === 'email-thread') {
       var graph = {
         name: 'Trackers',
         children: []
@@ -74,14 +98,14 @@ export default class PixelTrackerController extends SiftController {
       });
 
       result.data.graph = graph;
-    }else {
+    } else {
       result.data.graph = {
         'name': 'no-trackers-found',
         'children': []
       };
     }
 
-    console.log('result sync=', result);
+    // console.log('result sync=', result);
     // Synchronous return
     return result;
   }
@@ -123,7 +147,7 @@ export default class PixelTrackerController extends SiftController {
           }
         });
 
-        Object.keys(trackers).forEach(tracker =>{
+        Object.keys(trackers).forEach(tracker => {
           //console.log('graphing:', tracker, trackers[tracker]);
           graph.children.push({
             v: trackers[tracker].count,
@@ -132,8 +156,6 @@ export default class PixelTrackerController extends SiftController {
           });
         });
 
-
-        // console.log('graph async=', graph);
         return graph
       }).catch(function (err) {
         console.log('Got error', err);

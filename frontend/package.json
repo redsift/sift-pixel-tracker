@@ -1,32 +1,34 @@
 {
-  "name": "sift-pixel-tracker",
-  "version": "1.0.0",
-  "description": "## Development setup",
-  "main": "bundle.config.js",
-  "scripts": {
-    "build": "gulp build",
-    "pretest": "npm outdated",
-    "test": "echo \"Error: no test specified\" && exit 0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Redsift/sift-pixel-tracker.git"
-  },
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/Redsift/sift-pixel-tracker/issues"
-  },
-  "homepage": "https://github.com/Redsift/sift-pixel-tracker#readme",
-  "dependencies": {},
-  "devDependencies": {
-    "@redsift/d3-rs-treemap": "^0.1.3",
-    "@redsift/redsift-bundler": "0.4.3",
-    "@redsift/sift-sdk-web": "0.6.0",
-    "d3-hierarchy": "^1.0.2",
-    "d3-scale": "^1.0.3",
-    "d3-selection": "^1.0.2",
-    "d3-transition": "^1.0.1",
-    "gulp": "3.9.1"
-  }
+    "name": "sift-pixel-tracker",
+    "version": "1.0.0",
+    "description": "## Development setup",
+    "main": "bundle.config.js",
+    "scripts": {
+        "build": "gulp build",
+        "pretest": "npm outdated",
+        "test": "echo \"Error: no test specified\" && exit 0"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Redsift/sift-pixel-tracker.git"
+    },
+    "author": "",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/Redsift/sift-pixel-tracker/issues"
+    },
+    "homepage": "https://github.com/Redsift/sift-pixel-tracker#readme",
+    "dependencies": {},
+    "devDependencies": {
+        "@redsift/ui-rs-core": "^0.7.1",
+        "@redsift/ui-rs-hero": "^0.2.0",
+        "@redsift/d3-rs-treemap": "^0.1.3",
+        "@redsift/redsift-bundler": "0.5.3",
+        "@redsift/sift-sdk-web": "0.6.1",
+        "d3-hierarchy": "^1.0.2",
+        "d3-scale": "^1.0.3",
+        "d3-selection": "^1.0.2",
+        "d3-transition": "^1.0.1",
+        "gulp": "3.9.1"
+    }
 }

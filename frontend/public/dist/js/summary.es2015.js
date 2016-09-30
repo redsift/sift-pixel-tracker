@@ -945,9 +945,7 @@ var clockLast = 0;
 var clockNow = 0;
 var clockSkew = 0;
 var clock = typeof performance === "object" && performance.now ? performance : Date;
-var setFrame = typeof requestAnimationFrame === "function"
-        ? (clock === Date ? function(f) { requestAnimationFrame(function() { f(clock.now()); }); } : requestAnimationFrame)
-        : function(f) { setTimeout(f, 17); };
+var setFrame = typeof requestAnimationFrame === "function" ? requestAnimationFrame : function(f) { setTimeout(f, 17); };
 function now() {
   return clockNow || (setFrame(clearNow), clockNow = clock.now() + clockSkew);
 }
@@ -1002,8 +1000,8 @@ function timerFlush() {
   --frame;
 }
 
-function wake(time) {
-  clockNow = (clockLast = time || clock.now()) + clockSkew;
+function wake() {
+  clockNow = (clockLast = clock.now()) + clockSkew;
   frame = timeout = 0;
   try {
     timerFlush();
@@ -1064,8 +1062,9 @@ var CREATED = 0;
 var SCHEDULED = 1;
 var STARTING = 2;
 var STARTED = 3;
-var ENDING = 4;
-var ENDED = 5;
+var RUNNING = 4;
+var ENDING = 5;
+var ENDED = 6;
 
 function schedule(node, name, id, index, group, timing) {
   var schedules = node.__transition;
@@ -1113,24 +1112,32 @@ function create(node, id, self) {
   schedules[id] = self;
   self.timer = timer(schedule, 0, self.time);
 
-  // If the delay is greater than this first sleep, sleep some more;
-  // otherwise, start immediately.
   function schedule(elapsed) {
     self.state = SCHEDULED;
+    self.timer.restart(start, self.delay, self.time);
+
+    // If the elapsed delay is less than our first sleep, start immediately.
     if (self.delay <= elapsed) start(elapsed - self.delay);
-    else self.timer.restart(start, self.delay, self.time);
   }
 
   function start(elapsed) {
     var i, j, n, o;
 
+    // If the state is not SCHEDULED, then we previously errored on start.
+    if (self.state !== SCHEDULED) return stop();
+
     for (i in schedules) {
       o = schedules[i];
       if (o.name !== self.name) continue;
 
+      // While this element already has a starting transition during this frame,
+      // defer starting an interrupting transition until that transition has a
+      // chance to tick (and possibly end); see d3/d3-transition#54!
+      if (o.state === STARTED) return timeout$1(start);
+
       // Interrupt the active transition, if any.
       // Dispatch the interrupt event.
-      if (o.state === STARTED) {
+      if (o.state === RUNNING) {
         o.state = ENDED;
         o.timer.stop();
         o.on.call("interrupt", node, node.__data__, o.index, o.group);
@@ -1147,12 +1154,13 @@ function create(node, id, self) {
       }
     }
 
-    // Defer the first tick to end of the current frame; see mbostock/d3#1576.
+    // Defer the first tick to end of the current frame; see d3/d3#1576.
     // Note the transition may be canceled after start and before the first tick!
     // Note this must be scheduled before the start event; see d3/d3-transition#16!
     // Assuming this is successful, subsequent callbacks go straight to tick.
     timeout$1(function() {
       if (self.state === STARTED) {
+        self.state = RUNNING;
         self.timer.restart(tick, self.delay, self.time);
         tick(elapsed);
       }
@@ -1176,7 +1184,7 @@ function create(node, id, self) {
   }
 
   function tick(elapsed) {
-    var t = elapsed < self.duration ? self.ease.call(null, elapsed / self.duration) : (self.state = ENDING, 1),
+    var t = elapsed < self.duration ? self.ease.call(null, elapsed / self.duration) : (self.timer.restart(stop), self.state = ENDING, 1),
         i = -1,
         n = tween.length;
 
@@ -1186,12 +1194,17 @@ function create(node, id, self) {
 
     // Dispatch the end event.
     if (self.state === ENDING) {
-      self.state = ENDED;
-      self.timer.stop();
       self.on.call("end", node, node.__data__, self.index, self.group);
-      for (i in schedules) if (+i !== id) return void delete schedules[id];
-      delete node.__transition;
+      stop();
     }
+  }
+
+  function stop() {
+    self.state = ENDED;
+    self.timer.stop();
+    delete schedules[id];
+    for (var i in schedules) return; // eslint-disable-line no-unused-vars
+    delete node.__transition;
   }
 }
 
@@ -2728,7 +2741,9 @@ class Observable {
 
   _sub(topic, observer) {
     this._observers[topic] || (this._observers[topic] = []);
-    this._observers[topic].push(observer);
+    if(observer && this._observers[topic].indexOf(observer) === -1) {
+      this._observers[topic].push(observer);
+    }
   }
 
   _unsub(topic, observer) {
@@ -2982,6 +2997,8 @@ var loglevel = createCommonjsModule(function (module) {
     return defaultLogger;
 }));
 });
+
+var loglevel$1 = (loglevel && typeof loglevel === 'object' && 'default' in loglevel ? loglevel['default'] : loglevel);
 
 var index$2 = createCommonjsModule(function (module) {
 'use strict';
@@ -3791,6 +3808,16 @@ function indexedDB() {
     || commonjsGlobal.webkitIndexedDB;
 }
 });
+
+var logger = loglevel$1.getLogger('RSStorage:operations');
+logger.setLevel('warn');
+
+/**
+ * Redsift SDK. Sift Storage module.
+ * Based on APIs from https://github.com/CrowdProcess/riak-pb
+ *
+ * Copyright (c) 2016 Redsift Limited. All rights reserved.
+ */
 
 class SiftView {
   constructor() {
@@ -4771,9 +4798,9 @@ function newInterval(floori, offseti, count, field) {
 
   interval.filter = function(test) {
     return newInterval(function(date) {
-      while (floori(date), !test(date)) date.setTime(date - 1);
+      if (date >= date) while (floori(date), !test(date)) date.setTime(date - 1);
     }, function(date, step) {
-      while (--step >= 0) while (offseti(date, 1), !test(date));
+      if (date >= date) while (--step >= 0) while (offseti(date, 1), !test(date)) {} // eslint-disable-line no-empty
     });
   };
 
@@ -5563,19 +5590,19 @@ var parseIso = +new Date("2000-01-01T00:00:00.000Z")
     ? parseIsoNative
     : utcParse(isoSpecifier);
 
-function colors(s) {
+function colors$1(s) {
   return s.match(/.{6}/g).map(function(x) {
     return "#" + x;
   });
 }
 
-colors("1f77b4ff7f0e2ca02cd627289467bd8c564be377c27f7f7fbcbd2217becf");
+colors$1("1f77b4ff7f0e2ca02cd627289467bd8c564be377c27f7f7fbcbd2217becf");
 
-colors("393b795254a36b6ecf9c9ede6379398ca252b5cf6bcedb9c8c6d31bd9e39e7ba52e7cb94843c39ad494ad6616be7969c7b4173a55194ce6dbdde9ed6");
+colors$1("393b795254a36b6ecf9c9ede6379398ca252b5cf6bcedb9c8c6d31bd9e39e7ba52e7cb94843c39ad494ad6616be7969c7b4173a55194ce6dbdde9ed6");
 
-colors("3182bd6baed69ecae1c6dbefe6550dfd8d3cfdae6bfdd0a231a35474c476a1d99bc7e9c0756bb19e9ac8bcbddcdadaeb636363969696bdbdbdd9d9d9");
+colors$1("3182bd6baed69ecae1c6dbefe6550dfd8d3cfdae6bfdd0a231a35474c476a1d99bc7e9c0756bb19e9ac8bcbddcdadaeb636363969696bdbdbdd9d9d9");
 
-colors("1f77b4aec7e8ff7f0effbb782ca02c98df8ad62728ff98969467bdc5b0d58c564bc49c94e377c2f7b6d27f7f7fc7c7c7bcbd22dbdb8d17becf9edae5");
+colors$1("1f77b4aec7e8ff7f0effbb782ca02c98df8ad62728ff98969467bdc5b0d58c564bc49c94e377c2f7b6d27f7f7fc7c7c7bcbd22dbdb8d17becf9edae5");
 
 interpolateCubehelixLong(cubehelix(300, 0.5, 0.0), cubehelix(-240, 0.5, 1.0));
 
@@ -5592,13 +5619,13 @@ function ramp(range) {
   };
 }
 
-ramp(colors("44015444025645045745055946075a46085c460a5d460b5e470d60470e6147106347116447136548146748166848176948186a481a6c481b6d481c6e481d6f481f70482071482173482374482475482576482677482878482979472a7a472c7a472d7b472e7c472f7d46307e46327e46337f463480453581453781453882443983443a83443b84433d84433e85423f854240864241864142874144874045884046883f47883f48893e49893e4a893e4c8a3d4d8a3d4e8a3c4f8a3c508b3b518b3b528b3a538b3a548c39558c39568c38588c38598c375a8c375b8d365c8d365d8d355e8d355f8d34608d34618d33628d33638d32648e32658e31668e31678e31688e30698e306a8e2f6b8e2f6c8e2e6d8e2e6e8e2e6f8e2d708e2d718e2c718e2c728e2c738e2b748e2b758e2a768e2a778e2a788e29798e297a8e297b8e287c8e287d8e277e8e277f8e27808e26818e26828e26828e25838e25848e25858e24868e24878e23888e23898e238a8d228b8d228c8d228d8d218e8d218f8d21908d21918c20928c20928c20938c1f948c1f958b1f968b1f978b1f988b1f998a1f9a8a1e9b8a1e9c891e9d891f9e891f9f881fa0881fa1881fa1871fa28720a38620a48621a58521a68522a78522a88423a98324aa8325ab8225ac8226ad8127ad8128ae8029af7f2ab07f2cb17e2db27d2eb37c2fb47c31b57b32b67a34b67935b77937b87838b9773aba763bbb753dbc743fbc7340bd7242be7144bf7046c06f48c16e4ac16d4cc26c4ec36b50c46a52c56954c56856c66758c7655ac8645cc8635ec96260ca6063cb5f65cb5e67cc5c69cd5b6ccd5a6ece5870cf5773d05675d05477d1537ad1517cd2507fd34e81d34d84d44b86d54989d5488bd6468ed64590d74393d74195d84098d83e9bd93c9dd93ba0da39a2da37a5db36a8db34aadc32addc30b0dd2fb2dd2db5de2bb8de29bade28bddf26c0df25c2df23c5e021c8e020cae11fcde11dd0e11cd2e21bd5e21ad8e219dae319dde318dfe318e2e418e5e419e7e419eae51aece51befe51cf1e51df4e61ef6e620f8e621fbe723fde725"));
+ramp(colors$1("44015444025645045745055946075a46085c460a5d460b5e470d60470e6147106347116447136548146748166848176948186a481a6c481b6d481c6e481d6f481f70482071482173482374482475482576482677482878482979472a7a472c7a472d7b472e7c472f7d46307e46327e46337f463480453581453781453882443983443a83443b84433d84433e85423f854240864241864142874144874045884046883f47883f48893e49893e4a893e4c8a3d4d8a3d4e8a3c4f8a3c508b3b518b3b528b3a538b3a548c39558c39568c38588c38598c375a8c375b8d365c8d365d8d355e8d355f8d34608d34618d33628d33638d32648e32658e31668e31678e31688e30698e306a8e2f6b8e2f6c8e2e6d8e2e6e8e2e6f8e2d708e2d718e2c718e2c728e2c738e2b748e2b758e2a768e2a778e2a788e29798e297a8e297b8e287c8e287d8e277e8e277f8e27808e26818e26828e26828e25838e25848e25858e24868e24878e23888e23898e238a8d228b8d228c8d228d8d218e8d218f8d21908d21918c20928c20928c20938c1f948c1f958b1f968b1f978b1f988b1f998a1f9a8a1e9b8a1e9c891e9d891f9e891f9f881fa0881fa1881fa1871fa28720a38620a48621a58521a68522a78522a88423a98324aa8325ab8225ac8226ad8127ad8128ae8029af7f2ab07f2cb17e2db27d2eb37c2fb47c31b57b32b67a34b67935b77937b87838b9773aba763bbb753dbc743fbc7340bd7242be7144bf7046c06f48c16e4ac16d4cc26c4ec36b50c46a52c56954c56856c66758c7655ac8645cc8635ec96260ca6063cb5f65cb5e67cc5c69cd5b6ccd5a6ece5870cf5773d05675d05477d1537ad1517cd2507fd34e81d34d84d44b86d54989d5488bd6468ed64590d74393d74195d84098d83e9bd93c9dd93ba0da39a2da37a5db36a8db34aadc32addc30b0dd2fb2dd2db5de2bb8de29bade28bddf26c0df25c2df23c5e021c8e020cae11fcde11dd0e11cd2e21bd5e21ad8e219dae319dde318dfe318e2e418e5e419e7e419eae51aece51befe51cf1e51df4e61ef6e620f8e621fbe723fde725"));
 
-var magma = ramp(colors("00000401000501010601010802010902020b02020d03030f03031204041405041606051806051a07061c08071e0907200a08220b09240c09260d0a290e0b2b100b2d110c2f120d31130d34140e36150e38160f3b180f3d19103f1a10421c10441d11471e114920114b21114e22115024125325125527125829115a2a115c2c115f2d11612f116331116533106734106936106b38106c390f6e3b0f703d0f713f0f72400f74420f75440f764510774710784910784a10794c117a4e117b4f127b51127c52137c54137d56147d57157e59157e5a167e5c167f5d177f5f187f601880621980641a80651a80671b80681c816a1c816b1d816d1d816e1e81701f81721f817320817521817621817822817922827b23827c23827e24828025828125818326818426818627818827818928818b29818c29818e2a81902a81912b81932b80942c80962c80982d80992d809b2e7f9c2e7f9e2f7fa02f7fa1307ea3307ea5317ea6317da8327daa337dab337cad347cae347bb0357bb2357bb3367ab5367ab73779b83779ba3878bc3978bd3977bf3a77c03a76c23b75c43c75c53c74c73d73c83e73ca3e72cc3f71cd4071cf4070d0416fd2426fd3436ed5446dd6456cd8456cd9466bdb476adc4869de4968df4a68e04c67e24d66e34e65e44f64e55064e75263e85362e95462ea5661eb5760ec5860ed5a5fee5b5eef5d5ef05f5ef1605df2625df2645cf3655cf4675cf4695cf56b5cf66c5cf66e5cf7705cf7725cf8745cf8765cf9785df9795df97b5dfa7d5efa7f5efa815ffb835ffb8560fb8761fc8961fc8a62fc8c63fc8e64fc9065fd9266fd9467fd9668fd9869fd9a6afd9b6bfe9d6cfe9f6dfea16efea36ffea571fea772fea973feaa74feac76feae77feb078feb27afeb47bfeb67cfeb77efeb97ffebb81febd82febf84fec185fec287fec488fec68afec88cfeca8dfecc8ffecd90fecf92fed194fed395fed597fed799fed89afdda9cfddc9efddea0fde0a1fde2a3fde3a5fde5a7fde7a9fde9aafdebacfcecaefceeb0fcf0b2fcf2b4fcf4b6fcf6b8fcf7b9fcf9bbfcfbbdfcfdbf"));
+var magma = ramp(colors$1("00000401000501010601010802010902020b02020d03030f03031204041405041606051806051a07061c08071e0907200a08220b09240c09260d0a290e0b2b100b2d110c2f120d31130d34140e36150e38160f3b180f3d19103f1a10421c10441d11471e114920114b21114e22115024125325125527125829115a2a115c2c115f2d11612f116331116533106734106936106b38106c390f6e3b0f703d0f713f0f72400f74420f75440f764510774710784910784a10794c117a4e117b4f127b51127c52137c54137d56147d57157e59157e5a167e5c167f5d177f5f187f601880621980641a80651a80671b80681c816a1c816b1d816d1d816e1e81701f81721f817320817521817621817822817922827b23827c23827e24828025828125818326818426818627818827818928818b29818c29818e2a81902a81912b81932b80942c80962c80982d80992d809b2e7f9c2e7f9e2f7fa02f7fa1307ea3307ea5317ea6317da8327daa337dab337cad347cae347bb0357bb2357bb3367ab5367ab73779b83779ba3878bc3978bd3977bf3a77c03a76c23b75c43c75c53c74c73d73c83e73ca3e72cc3f71cd4071cf4070d0416fd2426fd3436ed5446dd6456cd8456cd9466bdb476adc4869de4968df4a68e04c67e24d66e34e65e44f64e55064e75263e85362e95462ea5661eb5760ec5860ed5a5fee5b5eef5d5ef05f5ef1605df2625df2645cf3655cf4675cf4695cf56b5cf66c5cf66e5cf7705cf7725cf8745cf8765cf9785df9795df97b5dfa7d5efa7f5efa815ffb835ffb8560fb8761fc8961fc8a62fc8c63fc8e64fc9065fd9266fd9467fd9668fd9869fd9a6afd9b6bfe9d6cfe9f6dfea16efea36ffea571fea772fea973feaa74feac76feae77feb078feb27afeb47bfeb67cfeb77efeb97ffebb81febd82febf84fec185fec287fec488fec68afec88cfeca8dfecc8ffecd90fecf92fed194fed395fed597fed799fed89afdda9cfddc9efddea0fde0a1fde2a3fde3a5fde5a7fde7a9fde9aafdebacfcecaefceeb0fcf0b2fcf2b4fcf4b6fcf6b8fcf7b9fcf9bbfcfbbdfcfdbf"));
 
-var inferno = ramp(colors("00000401000501010601010802010a02020c02020e03021004031204031405041706041907051b08051d09061f0a07220b07240c08260d08290e092b10092d110a30120a32140b34150b37160b39180c3c190c3e1b0c411c0c431e0c451f0c48210c4a230c4c240c4f260c51280b53290b552b0b572d0b592f0a5b310a5c320a5e340a5f3609613809623909633b09643d09653e0966400a67420a68440a68450a69470b6a490b6a4a0c6b4c0c6b4d0d6c4f0d6c510e6c520e6d540f6d550f6d57106e59106e5a116e5c126e5d126e5f136e61136e62146e64156e65156e67166e69166e6a176e6c186e6d186e6f196e71196e721a6e741a6e751b6e771c6d781c6d7a1d6d7c1d6d7d1e6d7f1e6c801f6c82206c84206b85216b87216b88226a8a226a8c23698d23698f24699025689225689326679526679727669827669a28659b29649d29649f2a63a02a63a22b62a32c61a52c60a62d60a82e5fa92e5eab2f5ead305dae305cb0315bb1325ab3325ab43359b63458b73557b93556ba3655bc3754bd3853bf3952c03a51c13a50c33b4fc43c4ec63d4dc73e4cc83f4bca404acb4149cc4248ce4347cf4446d04545d24644d34743d44842d54a41d74b3fd84c3ed94d3dda4e3cdb503bdd513ade5238df5337e05536e15635e25734e35933e45a31e55c30e65d2fe75e2ee8602de9612bea632aeb6429eb6628ec6726ed6925ee6a24ef6c23ef6e21f06f20f1711ff1731df2741cf3761bf37819f47918f57b17f57d15f67e14f68013f78212f78410f8850ff8870ef8890cf98b0bf98c0af98e09fa9008fa9207fa9407fb9606fb9706fb9906fb9b06fb9d07fc9f07fca108fca309fca50afca60cfca80dfcaa0ffcac11fcae12fcb014fcb216fcb418fbb61afbb81dfbba1ffbbc21fbbe23fac026fac228fac42afac62df9c72ff9c932f9cb35f8cd37f8cf3af7d13df7d340f6d543f6d746f5d949f5db4cf4dd4ff4df53f4e156f3e35af3e55df2e661f2e865f2ea69f1ec6df1ed71f1ef75f1f179f2f27df2f482f3f586f3f68af4f88ef5f992f6fa96f8fb9af9fc9dfafda1fcffa4"));
+var inferno = ramp(colors$1("00000401000501010601010802010a02020c02020e03021004031204031405041706041907051b08051d09061f0a07220b07240c08260d08290e092b10092d110a30120a32140b34150b37160b39180c3c190c3e1b0c411c0c431e0c451f0c48210c4a230c4c240c4f260c51280b53290b552b0b572d0b592f0a5b310a5c320a5e340a5f3609613809623909633b09643d09653e0966400a67420a68440a68450a69470b6a490b6a4a0c6b4c0c6b4d0d6c4f0d6c510e6c520e6d540f6d550f6d57106e59106e5a116e5c126e5d126e5f136e61136e62146e64156e65156e67166e69166e6a176e6c186e6d186e6f196e71196e721a6e741a6e751b6e771c6d781c6d7a1d6d7c1d6d7d1e6d7f1e6c801f6c82206c84206b85216b87216b88226a8a226a8c23698d23698f24699025689225689326679526679727669827669a28659b29649d29649f2a63a02a63a22b62a32c61a52c60a62d60a82e5fa92e5eab2f5ead305dae305cb0315bb1325ab3325ab43359b63458b73557b93556ba3655bc3754bd3853bf3952c03a51c13a50c33b4fc43c4ec63d4dc73e4cc83f4bca404acb4149cc4248ce4347cf4446d04545d24644d34743d44842d54a41d74b3fd84c3ed94d3dda4e3cdb503bdd513ade5238df5337e05536e15635e25734e35933e45a31e55c30e65d2fe75e2ee8602de9612bea632aeb6429eb6628ec6726ed6925ee6a24ef6c23ef6e21f06f20f1711ff1731df2741cf3761bf37819f47918f57b17f57d15f67e14f68013f78212f78410f8850ff8870ef8890cf98b0bf98c0af98e09fa9008fa9207fa9407fb9606fb9706fb9906fb9b06fb9d07fc9f07fca108fca309fca50afca60cfca80dfcaa0ffcac11fcae12fcb014fcb216fcb418fbb61afbb81dfbba1ffbbc21fbbe23fac026fac228fac42afac62df9c72ff9c932f9cb35f8cd37f8cf3af7d13df7d340f6d543f6d746f5d949f5db4cf4dd4ff4df53f4e156f3e35af3e55df2e661f2e865f2ea69f1ec6df1ed71f1ef75f1f179f2f27df2f482f3f586f3f68af4f88ef5f992f6fa96f8fb9af9fc9dfafda1fcffa4"));
 
-var plasma = ramp(colors("0d088710078813078916078a19068c1b068d1d068e20068f2206902406912605912805922a05932c05942e05952f059631059733059735049837049938049a3a049a3c049b3e049c3f049c41049d43039e44039e46039f48039f4903a04b03a14c02a14e02a25002a25102a35302a35502a45601a45801a45901a55b01a55c01a65e01a66001a66100a76300a76400a76600a76700a86900a86a00a86c00a86e00a86f00a87100a87201a87401a87501a87701a87801a87a02a87b02a87d03a87e03a88004a88104a78305a78405a78606a68707a68808a68a09a58b0aa58d0ba58e0ca48f0da4910ea3920fa39410a29511a19613a19814a099159f9a169f9c179e9d189d9e199da01a9ca11b9ba21d9aa31e9aa51f99a62098a72197a82296aa2395ab2494ac2694ad2793ae2892b02991b12a90b22b8fb32c8eb42e8db52f8cb6308bb7318ab83289ba3388bb3488bc3587bd3786be3885bf3984c03a83c13b82c23c81c33d80c43e7fc5407ec6417dc7427cc8437bc9447aca457acb4679cc4778cc4977cd4a76ce4b75cf4c74d04d73d14e72d24f71d35171d45270d5536fd5546ed6556dd7566cd8576bd9586ada5a6ada5b69db5c68dc5d67dd5e66de5f65de6164df6263e06363e16462e26561e26660e3685fe4695ee56a5de56b5de66c5ce76e5be76f5ae87059e97158e97257ea7457eb7556eb7655ec7754ed7953ed7a52ee7b51ef7c51ef7e50f07f4ff0804ef1814df1834cf2844bf3854bf3874af48849f48948f58b47f58c46f68d45f68f44f79044f79143f79342f89441f89540f9973ff9983ef99a3efa9b3dfa9c3cfa9e3bfb9f3afba139fba238fca338fca537fca636fca835fca934fdab33fdac33fdae32fdaf31fdb130fdb22ffdb42ffdb52efeb72dfeb82cfeba2cfebb2bfebd2afebe2afec029fdc229fdc328fdc527fdc627fdc827fdca26fdcb26fccd25fcce25fcd025fcd225fbd324fbd524fbd724fad824fada24f9dc24f9dd25f8df25f8e125f7e225f7e425f6e626f6e826f5e926f5eb27f4ed27f3ee27f3f027f2f227f1f426f1f525f0f724f0f921"));
+var plasma = ramp(colors$1("0d088710078813078916078a19068c1b068d1d068e20068f2206902406912605912805922a05932c05942e05952f059631059733059735049837049938049a3a049a3c049b3e049c3f049c41049d43039e44039e46039f48039f4903a04b03a14c02a14e02a25002a25102a35302a35502a45601a45801a45901a55b01a55c01a65e01a66001a66100a76300a76400a76600a76700a86900a86a00a86c00a86e00a86f00a87100a87201a87401a87501a87701a87801a87a02a87b02a87d03a87e03a88004a88104a78305a78405a78606a68707a68808a68a09a58b0aa58d0ba58e0ca48f0da4910ea3920fa39410a29511a19613a19814a099159f9a169f9c179e9d189d9e199da01a9ca11b9ba21d9aa31e9aa51f99a62098a72197a82296aa2395ab2494ac2694ad2793ae2892b02991b12a90b22b8fb32c8eb42e8db52f8cb6308bb7318ab83289ba3388bb3488bc3587bd3786be3885bf3984c03a83c13b82c23c81c33d80c43e7fc5407ec6417dc7427cc8437bc9447aca457acb4679cc4778cc4977cd4a76ce4b75cf4c74d04d73d14e72d24f71d35171d45270d5536fd5546ed6556dd7566cd8576bd9586ada5a6ada5b69db5c68dc5d67dd5e66de5f65de6164df6263e06363e16462e26561e26660e3685fe4695ee56a5de56b5de66c5ce76e5be76f5ae87059e97158e97257ea7457eb7556eb7655ec7754ed7953ed7a52ee7b51ef7c51ef7e50f07f4ff0804ef1814df1834cf2844bf3854bf3874af48849f48948f58b47f58c46f68d45f68f44f79044f79143f79342f89441f89540f9973ff9983ef99a3efa9b3dfa9c3cfa9e3bfb9f3afba139fba238fca338fca537fca636fca835fca934fdab33fdac33fdae32fdaf31fdb130fdb22ffdb42ffdb52efeb72dfeb82cfeba2cfebb2bfebd2afebe2afec029fdc229fdc328fdc527fdc627fdc827fdca26fdcb26fccd25fcce25fcd025fcd225fbd324fbd524fbd724fad824fada24f9dc24f9dd25f8df25f8e125f7e225f7e425f6e626f6e826f5e926f5eb27f4ed27f3ee27f3f027f2f227f1f426f1f525f0f724f0f921"));
 
 // Informed by the Cagatay Demiralp paper, grey is moved around to break
 // brown and red in this color scheme
@@ -6264,6 +6291,9 @@ function svg(id) {
   return _impl;
 }
 
+/**
+ * sift-pixel-tracker: summary view
+ */
 const DEFAULT_SIZE = 960;
 const DEFAULT_ASPECT = 1060 / 960;
 const DEFAULT_MARGIN = 26;  // white space
@@ -6374,8 +6404,7 @@ function chart(id) {
         .append('g')
           .attr('class', 'node')
           .attr('id', d => d.data.l)
-          .attr('transform', d => `translate(${d.x0},${d.y0})`)
-      
+
       nodesEntering.append('rect')
 
       if(appendText){
@@ -6397,17 +6426,20 @@ function chart(id) {
         nodesExit = nodesExit.transition(context)
       }
 
-      nodesEU.attr('transform', d => `translate(${d.x0},${d.y0})`)
       nodesExit.select('rect')
         .attr('x', d => d.x1)
         .attr('y', d => d.y1)
-        .attr('width', d =>d.x0)
-        .attr('height', d=> d.y0)
+        .attr('width', 0)
+        .attr('height',0)
 
       nodesExit.selectAll('image').attr('xlink:href','')
       nodesExit.remove()
 
+      nodesEU.attr('transform', d => `translate(${d.x0},${d.y0})`)
+
       nodesEU.select('rect')
+          .attr('x', 0)
+          .attr('y', 0)
           .attr('width', d => d.x1 - d.x0)
           .attr('height', d => d.y1 - d.y0)
           .attr('fill', ff)
@@ -6451,7 +6483,10 @@ function chart(id) {
           let createFilter = (c) => {
             let fid = `filter-${filter}`;
             if (id) fid = `${fid}-${id}-${c ? c.slice(1) : ''}`;
-            let e = filtersMap[filter](fid).strength(1.0)
+            let e = filtersMap[filter](fid)
+            if(filter !== 'shadow'){
+              e.strength(1.0)
+            }
             if(c){
               e.color(c)
             }
@@ -6595,6 +6630,518 @@ function chart(id) {
   return _impl;
 }
 
+const SCROLL_DURATION = 200;
+
+// Adapted from https://coderwall.com/p/hujlhg/smooth-scrolling-without-jquery
+function smooth_scroll_to(element, target, duration) {
+    target = Math.round(target);
+    duration = Math.round(duration);
+    if (duration < 0) {
+        return Promise.reject('bad duration');
+    }
+    if (duration === 0) {
+        element.scrollTop = target;
+        return Promise.resolve('no-duration');
+    }
+
+    let start_time = Date.now();
+    let end_time = start_time + duration;
+
+    let start_top = element.scrollTop;
+    let distance = target - start_top;
+
+    // based on http://en.wikipedia.org/wiki/Smoothstep
+    let smooth_step = function(start, end, point) {
+        if (point <= start) {
+            return 0;
+        }
+        if (point >= end) {
+            return 1;
+        }
+        let x = (point - start) / (end - start); // interpolation
+        return x * x * (3 - 2 * x);
+    }
+
+    return new Promise(function(resolve, reject) {
+        // This is to keep track of where the element's scrollTop is
+        // supposed to be, based on what we're doing
+        let previous_top = element.scrollTop;
+
+        let timer = null;
+        // This is like a think function from a game loop
+        let scroll_frame = function() {
+            /*
+            // This logic is too fragile
+            if(element.scrollTop != previous_top) {
+                window.clearInterval(timer);
+                reject('interrupted');
+                return;
+            }
+            */
+            // set the scrollTop for this frame
+            let now = Date.now();
+            let point = smooth_step(start_time, end_time, now);
+            let frameTop = Math.round(start_top + (distance * point));
+            element.scrollTop = frameTop;
+
+            // check if we're done!
+            if (now >= end_time) {
+                window.clearInterval(timer);
+                resolve('done');
+                return;
+            }
+
+            // If we were supposed to scroll but didn't, then we
+            // probably hit the limit, so consider it done; not
+            // interrupted.
+            if (element.scrollTop === previous_top && element.scrollTop !== frameTop) {
+                window.clearInterval(timer);
+                resolve('limit');
+                return;
+            }
+            previous_top = element.scrollTop;
+        }
+
+        // boostrap the animation process
+        timer = setInterval(scroll_frame, 10);
+    });
+}
+
+function clickFor(to, offset) {
+    return function(evt) {
+        let target = document.getElementById(to);
+        if (target === undefined) {
+            return true;
+        }
+        offset = offset || 0;
+        let delta = getAbsoluteBoundingRect(target).top + offset;
+        smooth_scroll_to(document.body, delta, SCROLL_DURATION).catch(function(e) {
+            console.error(e);
+        });
+        evt.preventDefault();
+        return false;
+    }
+}
+
+let scrollNodes = [];
+
+function throttle(type, name, obj) {
+    obj = obj || window;
+    let running = false;
+    let func = function() {
+        if (running) {
+            return;
+        }
+        running = true;
+        requestAnimationFrame(function() {
+            obj.dispatchEvent(new CustomEvent(name));
+            running = false;
+        });
+    };
+    obj.addEventListener(type, func);
+}
+
+function onScroll() {
+    let pos = window.scrollY;
+    scrollNodes.forEach(function(params) {
+        let node = params[0];
+        let current = params[1];
+        let cls = params[2];
+        let extents = params[4];
+
+        let state = false;
+        for (let i = 0; i < extents.length; i++) {
+            let extent = extents[i];
+            state = (pos > extent.start && pos < extent.end);
+            if (state) {
+                break;
+            }
+        }
+
+        if (state === current) {
+            return;
+        }
+        params[1] = state;
+        if (state) {
+            node.classList.add(cls);
+        } else {
+            node.classList.remove(cls);
+        }
+    });
+}
+
+function getAbsoluteBoundingRect(el) {
+    let doc = document,
+        win = window,
+        body = doc.body,
+
+        // pageXOffset and pageYOffset work everywhere except IE <9.
+        offsetX = win.pageXOffset !== undefined ? win.pageXOffset :
+        (doc.documentElement || body.parentNode || body).scrollLeft,
+        offsetY = win.pageYOffset !== undefined ? win.pageYOffset :
+        (doc.documentElement || body.parentNode || body).scrollTop,
+
+        rect = el.getBoundingClientRect();
+
+    if (el !== body) {
+        let parent = el.parentNode;
+
+        // The element's rect will be affected by the scroll positions of
+        // *all* of its scrollable parents, not just the window, so we have
+        // to walk up the tree and collect every scroll offset. Good times.
+        while (parent !== body) {
+            offsetX += parent.scrollLeft;
+            offsetY += parent.scrollTop;
+            parent = parent.parentNode;
+        }
+    }
+
+    return {
+        bottom: rect.bottom + offsetY,
+        height: rect.height,
+        left: rect.left + offsetX,
+        right: rect.right + offsetX,
+        top: rect.top + offsetY,
+        width: rect.width
+    };
+}
+
+function updateRegions() {
+    scrollNodes.forEach(function(params) {
+        let target = params[0].getBoundingClientRect();
+        let overlap = params[3];
+
+        let nodes = document.querySelectorAll(overlap);
+        let all = [];
+        for (let i = 0; i < nodes.length; i++) {
+            let node = nodes[i];
+            let ext = getAbsoluteBoundingRect(node);
+            all.push({
+                start: ext.top - target.height,
+                end: ext.bottom
+            });
+        }
+        params[4] = all;
+    });
+}
+
+let Scroll = {
+    initSmooth(selector, offset) {
+        let nodes = document.querySelectorAll(selector);
+        for (let i = 0; i < nodes.length; i++) {
+            let node = nodes[i];
+            let href = node.attributes.href;
+            if (href === undefined || href.length === 0) {
+                continue;
+            }
+            let to = href.nodeValue.toString();
+            if (to.substr(0, 1) !== '#') {
+                continue;
+            }
+
+            node.addEventListener('click', clickFor(to.substr(1), offset), false);
+        }
+    },
+    toggleClass(selector, cls, overlap) {
+        let nodes = document.querySelectorAll(selector);
+        if (nodes.length > 0) {
+            window.addEventListener('optimizedResize', updateRegions);
+            window.addEventListener('optimizedScroll', onScroll);
+        }
+        for (let i = 0; i < nodes.length; i++) {
+            let node = nodes[i];
+            let param = [node, null, cls, overlap, []];
+
+            // check for this node
+            let found = false;
+            for (let ii = 0; i < scrollNodes.length; i++) {
+                if (scrollNodes[ii][0] == node) {
+                    scrollNodes[ii] = param;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                scrollNodes.push(param);
+            }
+        }
+        updateRegions();
+        onScroll();
+    },
+    updateRegions: updateRegions
+};
+
+throttle('scroll', 'optimizedScroll');
+throttle('resize', 'optimizedResize');
+
+let style = document.createElement("style");
+document.head.appendChild(style);
+let sheet = style.sheet;
+
+var heroTmpl = "<div class=\"hero\">\n    <div class=\"hero__header\">\n        <h3 class=\"hero__header__content\"><!-- yields header --></h3>\n    </div>\n    <div class=\"hero__container\">\n        <div class=\"hero__content\"><!-- yields content --></div>\n    </div>\n</div>\n";
+
+class RedsiftHero {
+  constructor(el, opts) {
+    this.locators = {
+      hero: '.hero',
+      heroContainer: '.hero__container',
+      heroContent: '.hero__content',
+      heroHeader: '.hero__header',
+      heroHeaderContent: '.hero__header__content',
+      heroStickyHeader: '.hero-sticky-header',
+      heroStickyHeaderActive: '.hero-sticky-header--active',
+      scrollDownArrow: '#smooth'
+    }
+
+    this.downArrowHtml = '<div class="down-arrow"></div>';
+    this.hasStickyHeader = false;
+
+    this._setupElement(el, heroTmpl, opts);
+  }
+
+  setHeader(text) {
+    this.$headerContent.innerHTML = text;
+  }
+
+  setBgClass(bgClass) {
+    this.$hero.className += ` ${bgClass}`;
+  }
+
+  enableStickyHeader(flag, triggerElSelector) {
+      // NOTE: Do NOT use cached element here. For the first run these elements
+      // are only cached after this feature is handled!
+
+      if (flag) {
+          let $header = document.querySelector(this.locators.heroHeader),
+              $hero = document.querySelector(this.locators.hero);
+
+          if ($header) {
+            $header.classList.remove(this.locators.heroHeader.substr(1));
+            $header.classList.add(this.locators.heroStickyHeader.substr(1));
+            $hero.parentNode.parentNode.appendChild($header);
+          } // else the sticky-header is already present on the page
+
+          if (triggerElSelector && triggerElSelector != '') {
+              try {
+                  // TODO: change toggleClass signature to provide element list instead of selector
+                  //       for '.content' to be more flexible (i.e. provide first element after hero
+                  //       without having to know the name)
+                  Scroll.toggleClass(
+                      this.locators.heroStickyHeader,
+                      this.locators.heroStickyHeaderActive.substr(1),
+                      // FIXXME: replace hardcoded '.content' with something appropriate (based on aboves TODO)!
+                      triggerElSelector
+                  );
+              } catch (err) {
+                  console.log('[redsift-ui/hero] Error enabling sticky header. Did you specify a valid element name for the "sticky-header" attribute?');
+              }
+          }
+
+          this.hasStickyHeader = true;
+      } else {
+          let $header = document.querySelector(this.locators.heroStickyHeader),
+              $hero = document.querySelector(this.locators.hero);
+
+          if ($header) {
+              $header.classList.add(this.locators.heroHeader.substr(1));
+              $header.classList.remove(this.locators.heroStickyHeader.substr(1));
+              $hero.insertBefore($header, $hero.firstChild);
+
+              // TODO: remove toggleClass callback!
+
+              this.hasStickyHeader = false;
+          }
+      }
+  }
+
+  enableScrollFeature(flag, scrollTarget) {
+    if (flag) {
+      this.$scrollFeature = this._createScrollFeatureElement(scrollTarget);
+      this.$container.appendChild(this.$scrollFeature);
+
+      let offset = this._getStickyHeaderHeight();
+      Scroll.initSmooth(this.locators.scrollDownArrow, -offset);
+    } else if (this.$scrollFeature && this.$scrollFeature.parentNode) {
+      this.$scrollFeature.parentNode.removeChild(this.$scrollFeature);
+    }
+  }
+
+  //----------------------------------------------------------
+  // Private API:
+  //----------------------------------------------------------
+
+  _setupElement(el, heroTmpl, opts) {
+    // Get the user provided inner block of the element, replace the elements
+    // content with the hero tree and insert the content at the correct place.
+    let userTmpl = el.innerHTML;
+    el.innerHTML = heroTmpl;
+
+    let content = document.querySelector(this.locators.heroContent);
+    content.innerHTML = userTmpl;
+
+    // NOTE: handle sticky header before caching, as this.$header is set
+    // differently depending this feature:
+    if (opts.hasStickyHeader) {
+      this.enableStickyHeader(true, opts.stickyHeaderTrigger);
+    }
+
+    this._cacheElements(opts.hasStickyHeader);
+
+    if (opts.header) {
+      this.setHeader(opts.header);
+    }
+
+    if (opts.bgClass) {
+      this.setBgClass(opts.bgClass);
+    }
+
+    if (opts.scrollTarget) {
+      this.enableScrollFeature(true, opts.scrollTarget);
+    }
+  }
+
+  _createScrollFeatureElement(scrollTarget) {
+    let a = document.createElement('a');
+
+    a.id = this.locators.scrollDownArrow.substr(1);
+    a.href = scrollTarget;
+    a.innerHTML = this.downArrowHtml;
+
+    // FIXXME: If the arrow is on the same height as the header it is not
+    // clickable due to the z-index.
+
+    return a;
+  }
+
+  _getStickyHeaderHeight() {
+      let height = 0;
+
+      try {
+          if (this.hasStickyHeader) {
+              height = this.$header.getBoundingClientRect().height
+          }
+      } catch (err) {
+          console.log('[redsift-ui/hero] Error enabling sticky header. Did you specify a valid element name for the "sticky-header" attribute?');
+      }
+  }
+
+  // TODO: implement generic caching functionality, e.g. this.querySelector(selector, useCache)
+  _cacheElements(hasStickyHeader) {
+    this.$hero = document.querySelector(this.locators.hero);
+    if (hasStickyHeader) {
+      this.$header = document.querySelector(this.locators.heroStickyHeader);
+    } else {
+      this.$header = document.querySelector(this.locators.heroHeader);
+    }
+    this.$headerContent = document.querySelector(this.locators.heroHeaderContent);
+    this.$container = document.querySelector(this.locators.heroContainer);
+    this.$content = document.querySelector(this.locators.heroContent);
+    this.$scrollFeature = undefined;
+  }
+}
+
+class RedsiftHeroWebComponent extends HTMLElement {
+
+  //----------------------------------------------------------------------------
+  // Lifecycle:
+  //----------------------------------------------------------------------------
+
+  attachedCallback() {
+    let stickyHeaderTrigger = this.stickyHeader;
+
+    this.rsHero = new RedsiftHero(this, {
+      hasStickyHeader: this.hasStickyHeader,
+      stickyHeaderTrigger: stickyHeaderTrigger,
+      header: this.header,
+      bgClass: this.bgClass,
+      scrollTarget: this.scrollTarget
+    });
+  }
+
+  attributeChangedCallback(attributeName, oldValue, newValue) {
+    if (attributeName === 'scroll-target') {
+      if (!newValue) {
+        this.rsHero.enableScrollFeature(false);
+      }
+
+      if (newValue && !oldValue) {
+        this.rsHero.enableScrollFeature(true, this.scrollTarget);
+      }
+    }
+
+    if (attributeName === 'sticky-header') {
+      if (this.hasStickyHeader) {
+        if (!newValue || newValue == '') {
+          console.log('[redsift-ui] WARNING: No selector specified with "sticky-header" attribute. No "hero-sticky-header--active" class will be added!');
+        }
+        this.rsHero.enableStickyHeader(true, this.stickyHeader);
+      } else {
+        this.rsHero.enableStickyHeader(false);
+      }
+    }
+  }
+
+  //----------------------------------------------------------------------------
+  // Attributes:
+  //----------------------------------------------------------------------------
+
+  get header() {
+    return this.getAttribute('header');
+  }
+
+  set header(val) {
+    this.setAttribute('header', val);
+  }
+
+  get bgClass() {
+    return this.getAttribute('bg-class');
+  }
+
+  set bgClass(val) {
+    this.setAttribute('bg-class', val);
+  }
+
+  get hasStickyHeader() {
+    let a = this.getAttribute('sticky-header');
+    if (a == '' || a) {
+      return true;
+    }
+
+    return false;
+  }
+
+  get stickyHeader() {
+      return this.getAttribute('sticky-header');
+  }
+
+  set stickyHeader(val) {
+    return this.setAttribute('sticky-header', val);
+  }
+
+  get scrollTarget() {
+    return this.getAttribute('scroll-target');
+  }
+
+  set scrollTarget(val) {
+    return this.setAttribute('scroll-target', val);
+  }
+}
+
+var registerHeroElement = () => {
+    try {
+        document.registerElement('rs-hero', RedsiftHeroWebComponent);
+    } catch (e) {
+        console.log('[redsift-ui] Element already exists: ', e);
+    }
+}
+
+// register the element per default:
+registerHeroElement();
+
+/**
+ * sift-pixel-tracker: summary view
+ */
+
 class SummaryView extends SiftView {
   constructor() {
     // You have to call the super() method to initialize the base class.
@@ -6608,10 +7155,8 @@ class SummaryView extends SiftView {
       .filter('emboss')
     this.firstTime = true;
 
-
-    // Subscribe to 'calendarupdated' updates from the Controller
-    this.controller.subscribe('graph', this.onGraphUpdated.bind(this));
-
+    this.controller.subscribe('graph', this._updateGraph.bind(this));
+    this.controller.subscribe("count", this.updateHero.bind(this));
 
     // The SiftView provides lifecycle methods for when the Sift is fully loaded into the DOM (onLoad) and when it is
     // resizing (onResize).
@@ -6620,24 +7165,20 @@ class SummaryView extends SiftView {
   }
 
   _updateGraph(data){
-    console.log('updating graph')
-    // console.log('updateGraph:', data);
-
     // let getLabel = d => {
     //   return d.data.name === 'no-trackers-found' || d.children
     //   ? null
     //   : d.data.name + (d.data.count ? ' (' + d.data.count + ')' : '')
     // };
 
- 
     let w = select(this._div).node().offsetWidth;
     let h = select('#home').node().offsetHeight;
 
     let container = select(this._div).datum(data)
-    if(this.firstTime){
+    if (this.firstTime) {
       this.firstTime = false;
       container.call(this._treemap.width(w).height(h));
-    }else{
+    } else {
       container.transition()
         .delay(data.children.length / 10 * 800)
         .duration(750)
@@ -6647,14 +7188,25 @@ class SummaryView extends SiftView {
   }
 
   onGraphUpdated(g){
-    console.log('sift-pixel-tracker: onGraphUpdated', g);
+    console.log('sift-pixel-tracker: graph', g);
     this._updateGraph(g);
   }
 
   presentView(value){
-    console.log('sift-pixel-tracker: presentView: ');
+    console.log('sift-pixel-tracker: presentView: ', value);
     this._updateGraph(value.data.graph);
+
+    if (value.data.count) {
+      this.updateHero(value.data.count);
+    }
   }
+
+  updateHero({trackers, total}) {
+    document.getElementById("tracked_count").innerHTML = trackers;
+    var tracked_ratio = (100 * trackers / total).toFixed(0);
+    document.getElementById("tracked_percentage").innerHTML = tracked_ratio + "% (" + trackers + " / " + total + ") ";
+  }
+
   willPresentView(value){
     console.log('sift-pixel-tracker: willPresentView: ', value);
   }

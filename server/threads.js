@@ -1,4 +1,4 @@
-/** 
+/**
  * Aggregate trackers from emails into threads.
  */
 'use strict';
@@ -10,18 +10,18 @@ module.exports = function (got) {
   const query = got.query;
 
   //console.log('THREADS: ...', inData, query);
-  
+
   var epoch = 0; // We'll assign the latest epoch to the thread
   var trackers = {};
   for (var d of inData.data) {
     console.log('THREADS: key: ', d.key);
     console.log('THREADS: epoch: ', d.epoch);
     //console.log('THREADS: value: ', d.value);
-    
+
     if (d.epoch > epoch) {
       epoch = d.epoch;
     }
-    
+
     var value = {};
     try {
       value = JSON.parse(d.value);
@@ -48,7 +48,7 @@ module.exports = function (got) {
       }
     });
   }
-  console.log('THREADS: done: ', trackers);
+
   //console.log('MAP: mapped length: ', ret.length);
   return { name: 'tidList', key: query[0], value: { list: { trackers: trackers }, detail: { trackers: trackers } }, epoch: epoch };
 };

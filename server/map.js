@@ -9,14 +9,12 @@ const styleHeightRegExp = /(?:max-|)height\s*:\s*([01]\s*px)/i;
 const styleWidthRegExp = /(?:max-|)width\s*:\s*([01]\s*px)/i;
 
 const urlRegExp = /:\/\/([^\/]*)/i;
-const trackersMap = require('./trackers.json');
 
+const trackersMap = require('./trackers.json');
 var trackers = [];
 Object.keys(trackersMap).forEach(function (key) {
   trackers.push(key);
 });
-
-//console.log('trackers=', trackers);
 
 function checkForTracker(url) {
   var result = null;
@@ -38,6 +36,28 @@ function checkForTracker(url) {
   return { id: result, name: result };
 }
 
+var hasTracker = function(tagname, attribs) {
+  if (tagname === 'img' && attribs.src) {
+
+    if (attribs.width === '1' && attribs.height === '1' ||
+      attribs.width === '0' && attribs.height === '0') {
+        return true;
+      }
+
+    if (attribs.style) {
+      var heightVal = styleHeightRegExp.exec(attribs.style);
+      var widthVal = styleWidthRegExp.exec(attribs.style);
+      if (heightVal && widthVal && heightVal.length > 1 && widthVal.length > 1) {
+        if ((heightVal[1] === '0px' || heightVal[1] === '1px') && (widthVal[1] === '0px' || widthVal[1] === '1px')) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+};
+
 function getPromises(msg, epoch) {
   var promise = new Promise(function (resolve, reject) {
 
@@ -49,54 +69,36 @@ function getPromises(msg, epoch) {
 
     var parser = new htmlparser.Parser({
       onopentag: function (tagname, attribs) {
-        //console.log('opentag=', tagname);
-        if (tagname === 'img' && attribs.src) {
-          var foundTracker = attribs.width === '1' && attribs.height === '1' ||
-            attribs.width === '0' && attribs.height === '0';
+        //console.log('attribs=', attribs);
+        if (hasTracker(tagname, attribs)) {
+          //console.log('name, attribs=', tagname, attribs.width, attribs.height, attribs.src);
+          var tracker = checkForTracker(attribs.src);
 
-          if (!foundTracker) {
-            if (attribs.style) {
-              var heightVal = styleHeightRegExp.exec(attribs.style);
-              var widthVal = styleWidthRegExp.exec(attribs.style);
-              //console.log('heightVal,widthVal', heightVal, widthVal);
-              if (heightVal && widthVal && heightVal.length > 1 && widthVal.length > 1) {
-                if ((heightVal[1] === '0px' || heightVal[1] === '1px') && (widthVal[1] === '0px' || widthVal[1] === '1px')) {
-                  foundTracker = true;
-                }
-              }
+          //console.log('tracker map=', tracker);
+          if (tracker !== null && tracker.id != null) {
+
+            var trackerHash = result.trackers[tracker.id];
+            var count = 0;
+            //console.log('count=', count, typeof count);
+            if (trackerHash) {
+              count = trackerHash.count;
+            } else {
+              trackerHash = {};
+              result.trackers[tracker.id] = trackerHash;
             }
-          }
-          //console.log('attribs=', attribs);
-          if (foundTracker) {
-            //console.log('name, attribs=', tagname, attribs.width, attribs.height, attribs.src);
-            var tracker = checkForTracker(attribs.src);
-
-            //console.log('tracker map=', tracker);
-            if (tracker !== null && tracker.id != null) {
-
-              var trackerHash = result.trackers[tracker.id];
-              var count = 0;
-              //console.log('count=', count, typeof count);
-              if (trackerHash) {
-                count = trackerHash.count;
-              } else {
-                trackerHash = {};
-                result.trackers[tracker.id] = trackerHash;
-              }
-              count += 1;
-              trackerHash.count = count;
-              if (tracker.id) {
-                trackerHash.id = tracker.id;
-              }
-              if (tracker.name) {
-                trackerHash.name = tracker.name;
-              }
+            count += 1;
+            trackerHash.count = count;
+            if (tracker.id) {
+              trackerHash.id = tracker.id;
+            }
+            if (tracker.name) {
+              trackerHash.name = tracker.name;
             }
           }
         }
+
       },
       onend: function () {
-        //console.log('ending parsing!', arguments);
         resolve(result);
       }
     }, { decodeEntities: false });
@@ -107,7 +109,6 @@ function getPromises(msg, epoch) {
 
   var promise1 = promise.then(function (result) {
     if (result.trackers && Object.keys(result.trackers).length > 0) {
-      //console.log('promise1 result=', result);
       return {
         name: 'idList',
         key: result.id,
@@ -121,6 +122,7 @@ function getPromises(msg, epoch) {
       return null;
     }
   });
+
   var promise2 = promise.then(function (result) {
     if (result.trackers && Object.keys(result.trackers).length > 0) {
       //console.log('promise2 result=', result);
@@ -144,26 +146,20 @@ module.exports = function (got) {
   //console.log('MAP: mapping... got', got);
   const inData = got['in'];
   //const withData = got['with'];
-
-  console.log('MAP: mapping...');
-  //console.log('MAP: inData...', inData);
-  //console.log('MAP: withData...', withData);
   var ret = [];
+
   for (var d of inData.data) {
-    //console.log('MAP: data: ', d);
     if (d.value) {
       try {
         var msg = JSON.parse(d.value);
-        //console.log('MAP: msg.ID: ', msg.id, msg.threadId);
-
+        // console.log('MAP: msg.ID: ', msg.id, msg.threadId);
         if (msg.htmlBody && msg.htmlBody.length > 0) {
           var promises = getPromises(msg, d.epoch);
           //console.log('pushing promise', promise);
           ret.push(promises[0]);
           ret.push(promises[1]);
         }
-      }
-      catch (ex) {
+      } catch (ex) {
         console.error('MAP: Error parsing value for: ', d.key);
         console.error('MAP: Exception: ', ex);
         continue;

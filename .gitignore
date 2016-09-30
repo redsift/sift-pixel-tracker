@@ -4,3 +4,7 @@ sdk_runs/
 sdk_tmp/
 node_modules
 npm-debug.log
+*-grip.json
+frontend/etc/
+frontend/public/dist/
+server/etc/

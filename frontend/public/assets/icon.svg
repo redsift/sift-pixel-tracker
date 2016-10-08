@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="10493 -931 111.123 110.123">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #982cdb;
+      }
+
+      .cls-2 {
+        fill: #d084ff;
+      }
+
+      .cls-3 {
+        fill: #fff;
+      }
+    </style>
+  </defs>
+  <g id="group-82" transform="translate(1942 21)">
+    <g id="group-81">
+      <g id="group-62" transform="translate(8952 531)">
+        <g id="_-rs-icon-sift-tracked-mail" data-name="-rs-icon-sift-tracked-mail" transform="translate(-401 -1483)">
+          <path id="path" class="cls-1" d="M110.122,86.63l-23.29,23.493-63.371-.286L0,86.627l.173-63.42L23.188.116,86.832,0l23.291,23.207Z"/>
+        </g>
+      </g>
+      <path id="path-16" class="cls-2" d="M104.332,117.623,72,117.477V7.559L104.332,7.5l23.291,23.207V94.13l-23.29,23.493Z" transform="translate(8534.5 -959.5)"/>
+    </g>
+    <g id="group-77" transform="translate(9119.604 1015.327)">
+      <path id="path-13" class="cls-3" d="M0,32.3,40.25,0,81.17,32.3,40.786,65.865Zm25.253.164a15.266,15.266,0,1,0,29.385-5.805,7.217,7.217,0,1,1-8.044-8.2,15.265,15.265,0,0,0-21.341,14Z" transform="translate(-553.234 -1945)"/>
+      <path id="path-13-2" data-name="path-13" class="cls-3" d="M.537,65.857.391,47.729A15.306,15.306,0,0,0,15.534,32.461a15.182,15.182,0,0,0-1.147-5.806,7.216,7.216,0,1,1-8.044-8.2A15.176,15.176,0,0,0,.27,17.2L0,0,40.918,32.3.544,65.861l-.007,0Z" transform="translate(-512.984 -1945)"/>
+    </g>
+  </g>
+</svg>

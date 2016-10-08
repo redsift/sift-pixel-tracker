@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" style="height:100%">
+
+<head>
+  <meta charset="utf-8">
+  <title>Tracked Mail Sift</title>
+  <meta name="description" content="">
+  <meta name="author" content="">
+  <link rel="stylesheet" href="dist/css/style.min.css">
+</head>
+
+<body id="home" style="height:100%">
+  <rs-hero header="Tracked Mail Sift" bg-class="-bg-pixeltracker-hero -effect-darken" scroll-target="#scroll-target" sticky-header=".content">
+    <code class="currentpercent">0%</code>
+    <p class="fade-in delay">of the emails you received this month are being tracked</p>
+  </rs-hero>
+
+  <div class="content" id="scroll-target">
+    <div id="compact" class="statblock--central compact">
+      <code class="statnum--central currentpercent">0%</code>
+      <span class="statsubtitle--central">of emails received this month are tracked</span>
+    </div>
+    <div id="summary" class="summary" style="display: none;">
+      <div class="selectorheader">
+        <div class="monthblock">
+          <div class="monthlabel">Month:</div>
+          <select id="monthselector">
+          </select>
+        </div>
+        <div class="statblock" style="border-left: 1px solid white;">
+          <code id="monthtracked" class="statnum">0%</code>
+          <span class="statsubtitle">tracked</span>
+        </div>
+      </div>
+      <div class="mapheader">Tracking companies:</div>
+      <div id="treemap"></div>
+    </div>
+  </div>
+  <!-- App code -->
+  <script src="dist/js/summary.umd-es2015.min.js"></script>
+</body>
+
+</html>

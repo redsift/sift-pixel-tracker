@@ -1,7 +1,7 @@
 # Tracked Mail Sift
 ### Take back your privacy
 
-[<img src="http://static.redsift.io/assets/icons/deploy.svg">](https://dashboard.redsift.cloud/catalogue)
+[<img src="http://static.redsift.io/assets/icons/run.svg">](https://dashboard.redsift.cloud/catalogue)
 
 This Sift will give you insight into the tracked emails you are receiving. Tracked emails will be indicated so you can be in the know before you open them.
 

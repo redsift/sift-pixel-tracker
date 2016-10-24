@@ -1,10 +1,9 @@
 {
   "name": "sift-pixel-tracker",
   "version": "1.0.0",
-  "description": "## Development setup",
-  "main": "bundle.config.js",
+  "description": "Tracked Mail",
   "scripts": {
-    "build": "gulp build",
+    "build": "gulp",
     "pretest": "npm outdated",
     "test": "echo \"Error: no test specified\" && exit 0"
   },

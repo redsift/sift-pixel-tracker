@@ -1182,6 +1182,8 @@ function registerSiftView(siftView) {
  *
  * Copyright (c) 2016 Redsift Limited
  */
+const TrackerTemplate = '<img class="trackericon" src="assets/eye-purple.svg" /><span class="trackertext">%%TRACKER%%</span>';
+
 class DetailView extends SiftView {
   constructor() {
     // You have to call the super() method to initialize the base class.
@@ -1202,14 +1204,14 @@ class DetailView extends SiftView {
         ul.removeChild(ul.firstChild);
       }
       Object.keys(this._trackers).forEach((k) => {
-        let li = document.createElement('li');
-        li.classList.add('tracker');
+        let tracker = document.createElement('div');
+        tracker.classList.add('tracker');
         let ct = this._trackers[k].name;
         if(this._trackers[k].count > 1) {
           ct += ' (x' + this._trackers[k].count + ')';
         }
-        li.textContent = ct;
-        ul.appendChild(li);
+        tracker.innerHTML = TrackerTemplate.replace('%%TRACKER%%', ct);
+        ul.appendChild(tracker);
       });
     }
   }

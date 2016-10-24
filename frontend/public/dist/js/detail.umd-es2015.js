@@ -2,7 +2,7 @@
     typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
     typeof define === 'function' && define.amd ? define(factory) :
     (global.SiftPixelTracker = factory());
-}(this, (function () { 'use strict';
+}(this, (function () {
 
 /**
  * Observable pattern implementation.
@@ -1253,6 +1253,8 @@ function registerSiftView(siftView) {
  *
  * Copyright (c) 2016 Redsift Limited
  */
+var TrackerTemplate = '<img class="trackericon" src="assets/eye-purple.svg" /><span class="trackertext">%%TRACKER%%</span>';
+
 var DetailView = (function (SiftView) {
   function DetailView() {
     // You have to call the super() method to initialize the base class.
@@ -1279,14 +1281,14 @@ var DetailView = (function (SiftView) {
         ul.removeChild(ul.firstChild);
       }
       Object.keys(this._trackers).forEach(function (k) {
-        var li = document.createElement('li');
-        li.classList.add('tracker');
+        var tracker = document.createElement('div');
+        tracker.classList.add('tracker');
         var ct = this$1._trackers[k].name;
         if(this$1._trackers[k].count > 1) {
           ct += ' (x' + this$1._trackers[k].count + ')';
         }
-        li.textContent = ct;
-        ul.appendChild(li);
+        tracker.innerHTML = TrackerTemplate.replace('%%TRACKER%%', ct);
+        ul.appendChild(tracker);
       });
     }
   };

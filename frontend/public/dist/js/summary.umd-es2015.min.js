@@ -6967,6 +6967,8 @@ var filtersMap = {
   'greyscale': greyscale
 }
 
+var linkCache = {};
+
 function chart(id) {
   var classed = 'chart-treemap',
       theme = 'light',
@@ -7002,11 +7004,17 @@ function chart(id) {
     return onlyArray ? colors_array : colors_fn
    }
 
-  function checkImage(imageSrc, good, bad) {
-    var img = new Image();
-    img.onload = good;
-    img.onerror = bad;
-    img.src = imageSrc;
+  function checkImagePromise(imageSrc) {
+    if(linkCache.hasOwnProperty(imageSrc)){
+      return;
+    }
+    linkCache[imageSrc] = new Promise(function (ok,ko) {
+      var img = new Image();
+      img.onload = ok;
+      img.onerror = ko;
+      img.src = imageSrc;
+      return;
+    })
   }
 
   function _impl(context) {
@@ -7044,12 +7052,22 @@ function chart(id) {
 
       var _w = width - 2*margin
       var _h = sh - 2*margin
+      var _link = function () { return imageLink; }
+      if(imageLink === null){
+        _link = function (d) { return d.data.u; }
+      }
+
       var treeMap = treemap()
       .size([_w, _h])
       .round(true);
 
       var hr = hierarchy(data)
         .sum(function (d) { return d.v; })
+        .each(function (d) {
+          if(d.parent && imageFallbackLink){
+            checkImagePromise(_link(d));
+          }
+        })
 
       treeMap(hr);
 
@@ -7121,10 +7139,6 @@ function chart(id) {
       }
 
       if(appendImage){
-        var _link = function () { return imageLink; }
-        if(imageLink === null){
-          _link = function (d) { return d.data.u; }
-        }
         // doing some calculations to better position the image
         var _maxSize = 400;
         var w = function (d) { return d.x1 - d.x0; }
@@ -7147,10 +7161,10 @@ function chart(id) {
             if (id) fid = fid + "-" + id + "-" + (c ? c.slice(1) : '');
             var e = filtersMap[filter](fid)
             if(filter !== 'shadow'){
-              e.strength(1.0)
+              e.strength(1.0);
             }
             if(c){
-              e.color(c)
+              e.color(c);
             }
             return e;
           }
@@ -7170,32 +7184,26 @@ function chart(id) {
             snode.call(f)
           }
         }
-        var findImageFn = function (d,i) {
+        var findImageFn = function(d){
           if(!_link(d)){
-            return '';
+            return;
           }
-          if(imageFallbackLink){
-            checkImage(
-              _link(d),
-              function (){
-                g.select(("image#" + (_imageId(d,i)))).attr('xlink:href', _link(d))
-              },
-              function (){
-                g.select(("image#" + (_imageId(d,i)))).attr('xlink:href', imageFallbackLink)
-              })
-            return imageFallbackLink;
+          if(!imageFallbackLink){
+            return _link(d);
           }
-          return _link(d)
+          var that = this;
+          linkCache[_link(d)]
+            .then(function (){ select(that).attr('xlink:href', _link(d)) })
+            .catch(function (){ select(that).attr('xlink:href', imageFallbackLink) })
         }
+
         nodesEU.select('image')
             .attr('x', function (d) { return Math.round(w(d)/2 - _imgD(d)/2); })
             .attr('y', function (d) { return Math.round(h(d)/2 - _imgD(d)/2); })
             .attr('width', _imgD)
             .attr('height', _imgD)
             .attr('filter', _filterLookupFn)
-            .attr('xlink:href', findImageFn)
-
-        nodesEU.on('end', findImageFn)
+            .each(findImageFn)
       }
 
       var _style = style;
@@ -7208,7 +7216,7 @@ function chart(id) {
       styleEl.exit().remove();
       styleEl = styleEl.enter().append('style').attr('type', 'text/css').merge(styleEl);
       styleEl.text(_style);
-    })
+    })//selection ends
   }
 
   _impl.self = function() { return 'g' + (id ?  '#' + id : '.' + classed); };

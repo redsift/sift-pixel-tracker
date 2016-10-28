@@ -6932,6 +6932,8 @@ const filtersMap = {
   'greyscale': greyscale
 }
 
+let linkCache = {};
+
 function chart(id) {
   let classed = 'chart-treemap',
       theme = 'light',
@@ -6967,11 +6969,17 @@ function chart(id) {
     return onlyArray ? colors_array : colors_fn
    }
 
-  function checkImage(imageSrc, good, bad) {
-    var img = new Image();
-    img.onload = good;
-    img.onerror = bad;
-    img.src = imageSrc;
+  function checkImagePromise(imageSrc) {
+    if(linkCache.hasOwnProperty(imageSrc)){
+      return;
+    }
+    linkCache[imageSrc] = new Promise((ok,ko) => {
+      let img = new Image();
+      img.onload = ok;
+      img.onerror = ko;
+      img.src = imageSrc;
+      return;
+    })
   }
 
   function _impl(context) {
@@ -7009,12 +7017,22 @@ function chart(id) {
 
       let _w = width - 2*margin
       let _h = sh - 2*margin
+      let _link = () => imageLink
+      if(imageLink === null){
+        _link = d => d.data.u
+      }
+
       let treeMap = treemap()
       .size([_w, _h])
       .round(true);
 
-      var hr = hierarchy(data)
+      let hr = hierarchy(data)
         .sum(d => d.v)
+        .each(d => {
+          if(d.parent && imageFallbackLink){
+            checkImagePromise(_link(d));
+          }
+        })
 
       treeMap(hr);
 
@@ -7086,10 +7104,6 @@ function chart(id) {
       }
 
       if(appendImage){
-        let _link = () => imageLink
-        if(imageLink === null){
-          _link = d => d.data.u
-        }
         // doing some calculations to better position the image
         let _maxSize = 400;
         let w = d => d.x1 - d.x0
@@ -7112,10 +7126,10 @@ function chart(id) {
             if (id) fid = `${fid}-${id}-${c ? c.slice(1) : ''}`;
             let e = filtersMap[filter](fid)
             if(filter !== 'shadow'){
-              e.strength(1.0)
+              e.strength(1.0);
             }
             if(c){
-              e.color(c)
+              e.color(c);
             }
             return e;
           }
@@ -7123,7 +7137,7 @@ function chart(id) {
             // generate filters for all the colours
             let filterLookup = {}
             let filtersForColors = _makeFillFn(true).map(c => {
-              var f = createFilter(c)
+              let f = createFilter(c)
               filterLookup[c] = f.url();
               return f;
             })
@@ -7135,32 +7149,26 @@ function chart(id) {
             snode.call(f)
           }
         }
-        let findImageFn = (d,i) =>{
+        let findImageFn = function(d){
           if(!_link(d)){
-            return '';
+            return;
           }
-          if(imageFallbackLink){
-            checkImage(
-              _link(d),
-              ()=>{
-                g.select(`image#${_imageId(d,i)}`).attr('xlink:href', _link(d))
-              },
-              ()=>{
-                g.select(`image#${_imageId(d,i)}`).attr('xlink:href', imageFallbackLink)
-              })
-            return imageFallbackLink;
+          if(!imageFallbackLink){
+            return _link(d);
           }
-          return _link(d)
+          let that = this;
+          linkCache[_link(d)]
+            .then(()=>{ select(that).attr('xlink:href', _link(d)) })
+            .catch(()=>{ select(that).attr('xlink:href', imageFallbackLink) })
         }
+
         nodesEU.select('image')
             .attr('x', d => Math.round(w(d)/2 - _imgD(d)/2))
             .attr('y', d => Math.round(h(d)/2 - _imgD(d)/2))
             .attr('width', _imgD)
             .attr('height', _imgD)
             .attr('filter', _filterLookupFn)
-            .attr('xlink:href', findImageFn)
-
-        nodesEU.on('end', findImageFn)
+            .each(findImageFn)
       }
 
       let _style = style;
@@ -7168,12 +7176,12 @@ function chart(id) {
         _style = _impl.defaultStyle();
       }
 
-      var defsEl = snode.select('defs');
-      var styleEl = defsEl.selectAll('style').data(_style ? [ _style ] : []);
+      let defsEl = snode.select('defs');
+      let styleEl = defsEl.selectAll('style').data(_style ? [ _style ] : []);
       styleEl.exit().remove();
       styleEl = styleEl.enter().append('style').attr('type', 'text/css').merge(styleEl);
       styleEl.text(_style);
-    })
+    })//selection ends
   }
 
   _impl.self = function() { return 'g' + (id ?  '#' + id : '.' + classed); };

@@ -22,7 +22,7 @@
     "@redsift/ui-rs-core": "^0.8.8",
     "@redsift/ui-rs-hero": "^0.3.3",
     "@redsift/d3-rs-tip": "^0.3.3",
-    "@redsift/d3-rs-treemap": "^0.1.7",
+    "@redsift/d3-rs-treemap": "^0.1.9",
     "@redsift/redsift-bundler": "0.5.5",
     "@redsift/sift-sdk-web": "0.6.1",
     "d3-selection": "^1.0.2",

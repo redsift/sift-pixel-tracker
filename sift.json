@@ -1,7 +1,7 @@
 {
   "name": "sift-pixel-tracker",
   "display-name": "Tracked Mail",
-  "description": "This Sift will give you insight into the tracked emails you are receiving. Tracked emails will be indicated so you can be in the know before you open them.",
+  "description": "Find out who is sending you emails with hidden trackers. Even before you open them.",
   "version": "1.0.0",
   "author": "Deepak Prabhakara",
   "subtitle": "Take back your privacy",

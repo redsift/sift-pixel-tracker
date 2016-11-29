@@ -69,7 +69,8 @@
       {
         "#": "Monthly Sender Domains",
         "implementation": {
-          "javascript": "server/senderdomains.js"
+          "javascript": "server/senderdomains.js",
+          "shared": true
         },
         "input": {
           "bucket": "months",

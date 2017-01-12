@@ -73,7 +73,8 @@
         },
         "input": {
           "bucket": "months",
-          "select": "$month/*"
+          "select": "$month/*",
+          "batched": true
         },
         "outputs": {
           "senderdomains": {}
